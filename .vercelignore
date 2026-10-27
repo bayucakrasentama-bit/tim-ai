@@ -9,3 +9,6 @@ site-original/
 tim-ai-ds-v3/
 docs/
 dev
+.env*
+.claude
+tim-ai-bcs
