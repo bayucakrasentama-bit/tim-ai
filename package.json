@@ -1,0 +1,28 @@
+{
+  "name": "siarin",
+  "version": "0.1.0",
+  "description": "Publish & jadwalkan konten ke banyak akun sosmed sekaligus (web app lokal).",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "build:vendor": "esbuild scripts/blob-client-entry.mjs --bundle --format=esm --platform=browser --minify --outfile=public/vendor/blob-client.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "@vercel/blob": "2.8.2",
+    "@vercel/functions": "3.10.3",
+    "express": "5.1.0",
+    "multer": "2.0.2",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "esbuild": "0.28.2"
+  }
+}

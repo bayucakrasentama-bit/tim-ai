@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TIM-AI</title>
+<link rel="icon" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<script>try{var t=localStorage.getItem('timai.theme');if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem('timai.sb')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/ds.css">
+</head>
+<body>
+  <!-- Tata letak: sidebar kiri (menu per tim) + area kerja. Di HP sidebar jadi menu geser. -->
+  <div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-top">
+      <div class="brand"><img class="logo logo-img" src="/logo.svg" alt=""><span class="brand-name">TIM-AI</span></div>
+      <select id="brand-switch" class="brand-switch" aria-label="Pilih brand" hidden></select>
+<div class="sb-tools"><button class="icon-btn" id="theme-toggle" title="Ganti tema terang/gelap" aria-label="Ganti tema">◐</button><button class="icon-btn" id="sb-collapse" title="Ciutkan sidebar" aria-label="Ciutkan sidebar">«</button></div>
+    </div>
+    <!-- data-team = tim yang memakai menu itu sebagai menu utama; menu tim lain lewat "Semua menu". -->
+    <nav id="nav" aria-label="Menu utama">
+      <button data-view="dashboard" data-team="konten medsos digital adv mp kol affiliate cs" class="active">Dashboard</button>
+<button data-view="reports" data-team="konten medsos digital adv mp kol affiliate cs">Laporan &amp; Master BCS</button>
+<span class="nav-group" data-group="konten">Tim Konten</span>
+<button data-view="planner" data-team="konten medsos">Planner</button>
+<button data-view="studio" data-team="konten digital">Studio Visual</button>
+<button data-view="motion" data-team="konten">Video Motion</button>
+<button data-view="ai" data-team="konten">AI Studio</button>
+<span class="nav-group" data-group="digital">Tim Digital</span>
+<button data-view="launch" data-team="digital">Launch Lab</button>
+<span class="nav-group" data-group="medsos">Tim Medsos</span>
+<button data-view="calendar" data-team="konten medsos">Kalender</button>
+<button data-view="compose" data-team="medsos">Buat Post</button>
+<button data-view="history" data-team="medsos">Riwayat</button>
+<button data-view="analytics" data-team="medsos">Analitik</button>
+<button data-view="tiktok" data-team="medsos konten">Scraper TikTok</button>
+<button data-view="accounts" data-team="medsos">Akun Sosmed</button>
+<span class="nav-group" data-group="adv">Tim ADV</span>
+<button data-view="adv" data-team="adv">Iklan ADV</button>
+<span class="nav-group" data-group="mp">Tim MP</span>
+<button data-view="mp" data-team="mp">Iklan Marketplace</button>
+<span class="nav-group" data-group="kol">Tim KOL</span>
+<button data-view="kol" data-team="kol">KOL &amp; Influencer</button>
+<span class="nav-group" data-group="affiliate">Tim Affiliate</span>
+<button data-view="affiliate" data-team="affiliate">Kreator Affiliate</button>
+<span class="nav-group" data-group="cs">Tim CS</span>
+<button data-view="inbox" data-team="cs">Inbox</button>
+<button data-view="cs" data-team="cs">Tiket &amp; Template</button>
+<span class="nav-group" data-group="all">Pengaturan</span>
+<button data-view="aikeys" data-team="">AI &amp; API Keys</button>
+<button data-view="integrations" data-team="medsos adv mp kol affiliate">Integrasi Cepat</button>
+<button data-view="team" data-team="">Tim &amp; Brand</button>
+<button id="nav-more" class="nav-more" hidden>Semua menu ▾</button>
+    </nav>
+    <div class="user-box"><span class="ub-avatar" id="ub-avatar">?</span><span id="user-label" class="ub-name"></span><button id="logout-btn" class="ghost small" hidden>Keluar</button></div>
+  </aside>
+  <div class="sb-backdrop" id="sb-backdrop"></div>
+  <div class="workspace">
+  <header class="mobilebar"><button class="icon-btn" id="sb-toggle" aria-label="Buka menu">☰</button><img class="logo logo-img" src="/logo.svg" alt=""><b>TIM-AI</b><span id="mb-title" class="mb-title"></span></header>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <div class="row-between">
+        <h1 id="dash-title">Dashboard</h1>
+        <select id="dash-range" aria-label="Periode">
+          <option value="7">7 hari terakhir</option>
+          <option value="30" selected>30 hari terakhir</option>
+          <option value="90">90 hari terakhir</option>
+        </select>
+      </div>
+      <div id="dash-kpis" class="kpi-row"></div>
+      <div class="grid-2">
+        <div class="card"><div class="label">Funnel</div><div id="dash-funnel"></div></div>
+        <div class="card"><div class="label">Pipeline konten</div><div id="dash-pipeline"></div>
+          <div class="label">Akan tayang</div><div id="dash-upcoming"></div></div>
+      </div>
+      <div class="card"><div class="row-between"><div class="label">Views harian</div><span class="hint" id="dash-sync"></span></div><div id="dash-timeline"></div></div>
+    </section>
+
+    <!-- PLANNER -->
+    <section id="view-planner" class="view">
+      <div class="row-between">
+        <h1>Content Planner</h1>
+        <div class="btn-row">
+          <label class="toggle"><input type="checkbox" id="planner-mine"> Tugas saya</label>
+          <input id="planner-search" placeholder="Cari konten..." class="search">
+          <button class="ghost" id="planner-notify" title="Notifikasi Telegram / WhatsApp">🔔 Notifikasi</button>
+<button class="primary" id="planner-add">+ Konten baru</button>
+        </div>
+      </div>
+      <p class="hint"><b>Tim konten</b>: isi kartu, lampirkan visual dari Studio, lalu geser ke <b>Review</b>. Setelah disetujui, pindah ke <b>Siap</b>.
+        <b>Tim medsos</b>: buka kartu Siap → <b>Jadwalkan</b>. Statusnya ikut berubah sendiri sampai kontennya tayang.</p>
+      <div id="kanban" class="kanban"></div>
+    </section>
+
+    <!-- STUDIO VISUAL -->
+    <section id="view-studio" class="view">
+<div class="row-between">
+<h1>Studio Visual</h1>
+<div class="btn-row"><a class="btn" id="studio-newtab" href="/studio/" target="_blank" rel="noopener">Buka di tab baru ↗</a></div>
+</div>
+<div class="tabs" id="studio-tabs"><button data-studio="tools" class="active">12 Tool Desain</button><button data-studio="lp">LP Builder</button></div>
+<div id="studio-tools">
+<p class="hint">12 tool desain: isi brief, copy prompt, terus generate gambarnya di ChatGPT. Gambar hasilnya
+<b>upload ke kartu Planner</b> (bagian Lampiran), biar tim medsos tinggal jadwalin dengan media yang udah kebawa.</p>
+<iframe id="studio-frame" class="studio-frame" title="Studio Visual" allow="clipboard-write"></iframe>
+</div>
+<div id="studio-lp" hidden></div>
+</section>
+
+    <!-- VIDEO MOTION (diisi motion.js) -->
+    <section id="view-motion" class="view"></section>
+
+    <!-- INBOX CS (diisi inbox.js) -->
+    <section id="view-inbox" class="view view-full"></section>
+
+    <!-- SCRAPER TIKTOK / LAUNCH LAB / CS / LAPORAN (diisi teams.js) -->
+    <section id="view-tiktok" class="view"></section>
+    <section id="view-launch" class="view"></section>
+    <section id="view-cs" class="view"></section>
+    <section id="view-reports" class="view"></section>
+<!-- TIM ADV / TIM MP (diisi ads.js), INTEGRASI CEPAT (integrations.js) -->
+<section id="view-adv" class="view"></section>
+<section id="view-mp" class="view"></section>
+<section id="view-kol" class="view"></section>
+<section id="view-affiliate" class="view"></section>
+<section id="view-integrations" class="view"></section>
+<section id="view-aikeys" class="view"></section>
+
+    <!-- ANALITIK -->
+    <section id="view-analytics" class="view">
+      <div class="row-between">
+        <h1>Analitik</h1>
+        <div class="btn-row">
+          <select id="an-range" aria-label="Periode">
+            <option value="7">7 hari</option>
+            <option value="30" selected>30 hari</option>
+            <option value="90">90 hari</option>
+            <option value="365">1 tahun</option>
+          </select>
+          <button class="ghost" id="an-sync">Tarik data dari API</button>
+          <button class="ghost" id="an-add">+ Input manual</button>
+          <button class="ghost" id="an-extract">📷 Dari screenshot (AI)</button>
+          <button class="ghost" id="an-report">Laporan</button>
+        </div>
+      </div>
+      <div id="an-sync-result"></div>
+      <div id="an-kpis" class="kpi-row"></div>
+      <div class="grid-2">
+        <div class="card"><div class="label">Funnel penuh</div><div id="an-funnel"></div></div>
+        <div class="card"><div class="label">Jam tayang terbaik (rata-rata views, WIB)</div><div id="an-heatmap"></div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="label">Per platform</div><div id="an-platform"></div></div>
+        <div class="card"><div class="label">Per pilar konten</div><div id="an-pillar"></div></div>
+      </div>
+      <div class="card"><div class="label">Semua konten</div><div id="an-table" class="table-wrap"></div></div>
+    </section>
+
+    <!-- AI STUDIO -->
+    <section id="view-ai" class="view">
+      <h1>AI Studio</h1>
+      <div id="ai-status"></div>
+      <div class="tabs" id="ai-tabs">
+        <button data-tab="ideas" class="active">Ide &amp; Script</button>
+        <button data-tab="analyze">Analisa Performa</button>
+        <button data-tab="strategy">Susun Strategi</button>
+      </div>
+      <div class="card" id="ai-panel"></div>
+      <div id="ai-output"></div>
+    </section>
+
+    <!-- TIM & BRAND -->
+    <section id="view-team" class="view">
+      <h1>Tim &amp; Brand</h1>
+      <div class="grid-2">
+        <div class="card">
+          <div class="row-between"><div class="label">Brand / workspace</div><button class="link" id="brand-add">+ Brand baru</button></div>
+          <div id="brand-list"></div>
+        </div>
+        <div class="card">
+          <div class="row-between"><div class="label">Anggota tim</div><button class="link" id="user-add">+ Anggota</button></div>
+          <div id="user-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BUAT POST -->
+    <section id="view-compose" class="view">
+      <div id="compose-from"></div>
+      <h1>Buat Post</h1>
+      <form id="compose-form" class="grid-2">
+        <div class="card">
+          <div class="label">Konten</div>
+          <div class="type-pills" id="type-pills">
+            <span data-type="text" class="active">Teks</span>
+            <span data-type="image">Gambar</span>
+            <span data-type="video">Video</span>
+          </div>
+          <textarea id="caption" rows="7" placeholder="Tulis caption di sini..."></textarea>
+          <div class="hint right"><span id="caption-count">0</span> karakter</div>
+
+          <div class="label">Media (opsional)</div>
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="media" accept="image/*,video/*" hidden>
+            <div id="drop-empty">Klik atau seret gambar / video ke sini</div>
+            <div id="drop-preview" hidden></div>
+          </label>
+          <button type="button" class="link" id="media-clear" hidden>Hapus media</button>
+
+          <div id="title-wrap" hidden>
+            <div class="label">Judul video YouTube</div>
+            <input id="title" maxlength="100" placeholder="Kosongkan = pakai baris pertama caption">
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row-between">
+            <div class="label">Posting ke akun</div>
+            <button type="button" class="link" id="select-all">Pilih semua</button>
+          </div>
+          <div id="account-picker" class="account-grid"></div>
+
+          <details id="per-platform" class="per-platform">
+            <summary>Caption beda per platform</summary>
+            <div id="per-platform-fields"></div>
+          </details>
+
+          <div class="label">Kapan diposting?</div>
+          <div class="when">
+            <label><input type="radio" name="mode" value="now" checked> Sekarang</label>
+            <label><input type="radio" name="mode" value="schedule"> Jadwalkan</label>
+            <input type="datetime-local" id="scheduled-at" disabled>
+          </div>
+
+          <div id="compose-error" class="error" hidden></div>
+          <button type="submit" class="primary big" id="submit-btn">Posting Sekarang</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- JADWAL -->
+    <section id="view-calendar" class="view">
+      <div class="row-between">
+        <h1>Kalender</h1>
+        <div class="cal-nav">
+          <button id="cal-prev" aria-label="Bulan sebelumnya">‹</button>
+          <strong id="cal-title"></strong>
+          <button id="cal-next" aria-label="Bulan berikutnya">›</button>
+          <button id="cal-today" class="ghost">Hari ini</button>
+        </div>
+      </div>
+      <p class="hint"><span class="chip-demo plan">Rencana</span> = kartu planner yang belum dijadwalkan. Klik buat buka.</p>
+      <div class="calendar" id="calendar"></div>
+      <h2>Akan datang</h2>
+      <div id="upcoming" class="post-list"></div>
+    </section>
+
+    <!-- RIWAYAT -->
+    <section id="view-history" class="view">
+      <div class="row-between">
+        <h1>Riwayat</h1>
+        <select id="history-filter">
+          <option value="">Semua status</option>
+          <option value="done">Sukses</option>
+          <option value="partial">Sebagian gagal</option>
+          <option value="failed">Gagal</option>
+          <option value="scheduled">Terjadwal</option>
+          <option value="publishing">Sedang dikirim</option>
+        </select>
+      </div>
+      <div id="history" class="post-list"></div>
+    </section>
+
+    <!-- AKUN -->
+    <section id="view-accounts" class="view">
+      <h1>Akun</h1>
+      <div class="card">
+        <div class="label">Akun terhubung</div>
+        <div id="account-list"></div>
+      </div>
+
+      <h2>Tambah akun</h2>
+      <div class="grid-2 acc-add">
+        <div class="card guide">
+          <div class="label">Pilih platform</div>
+          <select id="acc-platform"></select>
+          <div id="guide"></div>
+        </div>
+
+        <form class="card acc-form" id="account-form">
+          <div id="helper"></div>
+          <div class="label">Isi data akun</div>
+          <input id="acc-name" placeholder="Nama akun (bebas, mis. Toko Kue Bunda)">
+          <div id="acc-fields"></div>
+          <div id="account-error" class="error" hidden></div>
+          <div id="check-result"></div>
+          <div class="btn-row">
+            <button class="ghost" type="button" id="check-btn">Cek token</button>
+            <button class="primary" type="submit">Simpan akun</button>
+          </div>
+          <p class="hint" id="storage-hint">Kredensial disimpan di database TIM-AI milikmu sendiri.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  </div><!-- /workspace -->
+  </div><!-- /app-shell -->
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-box" id="modal-box"></div>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <div class="tooltip" id="tooltip" hidden></div>
+  <script src="/app.js" type="module"></script>
+  <script src="/suite.js" type="module"></script>
+  <script src="/motion.js" type="module"></script>
+  <script src="/teams.js" type="module"></script>
+  <script src="/inbox.js" type="module"></script>
+<script src="/team-ai.js" type="module"></script>
+<script src="/ads.js" type="module"></script>
+<script src="/partner-tools.js" type="module"></script>
+<script src="/partners.js" type="module"></script>
+<script src="/lp-builder.js" type="module"></script>
+<script src="/integrations.js" type="module"></script>
+<script src="/ai-hub.js" type="module"></script>
+<script src="/ops.js" type="module"></script>
+<script src="/growth.js" type="module"></script>
+<script src="/bento.js" type="module"></script>
+<script src="/planner-views.js" type="module"></script>
+<script src="/divisions.js" type="module"></script>
+<script src="/medsos.js" type="module"></script>
+<script src="/studio-ai.js" type="module"></script>
+<script src="/shell.js" type="module"></script>
+</body>
+</html>

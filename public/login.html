@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masuk · TIM-AI</title>
+<link rel="icon" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<script>try{var t=localStorage.getItem('timai.theme');if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem('timai.sb')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
+<link rel="stylesheet" href="/style.css">
+  <style>
+    .login { max-width: 360px; margin: 12vh auto; }
+    .login .brand { justify-content: center; margin-bottom: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <form class="card login" id="login-form">
+      <div class="brand"><img class="logo logo-img" src="/logo.svg" alt=""> TIM-AI</div>
+      <input id="username" placeholder="Username" autocomplete="username" autocapitalize="none" autofocus>
+      <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+      <div id="login-error" class="error" hidden></div>
+      <button class="primary big" type="submit">Masuk</button>
+    </form>
+  </main>
+  <script type="module">
+    const form = document.getElementById('login-form');
+    const err = document.getElementById('login-error');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value,
+        }),
+      });
+      // Balik ke halaman asal (mis. /studio/) kalau ada, tapi cuma path di situs ini sendiri.
+      const next = new URLSearchParams(location.search).get('next') || '';
+      if (res.ok) return (location.href = /^\/(?!\/)[\w\-./]*$/.test(next) ? next : '/');
+      err.textContent = (await res.json().catch(() => ({}))).error || 'Gagal masuk';
+      err.hidden = false;
+    });
+  </script>
+</body>
+</html>
