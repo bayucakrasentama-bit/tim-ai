@@ -185,19 +185,27 @@ async function runAgent(box, a, values) {
   const missing = a.fields.filter((f) => f.req && !String(values[f.k] || '').trim());
   if (missing.length) return toast(`Isi dulu: ${missing.map((f) => f.label).join(', ')}`);
   out.innerHTML = `<div class="card"><span class="spinner inline"></span> ${esc(a.name)} lagi bekerja… (20–60 detik)</div><div class="spinner"></div>`;
+  try {
+    const text = await generate(a, values);
+    out.innerHTML = outHtml(a, text);
+    out.dataset.text = text;
+  } catch (ex) {
+    out.innerHTML = `<div class="check bad">⚠️ ${esc(ex.message)}</div>`;
+  }
+}
+// Jalankan satu agen dan catat riwayat, pemakaian, dan aktivitasnya. Dipakai halaman agen dan Asisten AI (assistant.js).
+async function generate(a, values) {
   const brief = a.fields.filter((f) => String(values[f.k] || '').trim()).map((f) => `- ${f.label}: ${values[f.k]}`).join('\n');
   const act = logActivity({ agent: a.id, status: 'running', title: String(Object.values(values).find(Boolean) || '').slice(0, 60) });
   try {
     const text = await chat(`${a.sys}${brandCtx()} ${BASE}`, `Brief:\n${brief}\n\nSusun hasil dengan format berikut:\n${a.out}`);
-    out.innerHTML = outHtml(a, text);
-    out.dataset.text = text;
-    const hist = [{ at: Date.now(), values, text }, ...history(a.id)].slice(0, 8);
-    store.set(`hist.${a.id}`, hist);
+    store.set(`hist.${a.id}`, [{ at: Date.now(), values, text }, ...history(a.id)].slice(0, 8));
     const u = usage(); u[a.id] = (u[a.id] || 0) + 1; store.set('usage', u);
     logActivity({ ...act, status: 'done', end: Date.now() });
+    return text;
   } catch (ex) {
-    out.innerHTML = `<div class="check bad">⚠️ ${esc(ex.message)}</div>`;
     logActivity({ ...act, status: 'failed', end: Date.now(), error: ex.message });
+    throw ex;
   }
 }
 // Log aktivitas agen (dipakai Kantor Virtual): satu baris per tugas, statusnya berjalan → selesai / gagal.
@@ -226,12 +234,16 @@ function renderAgents(view, { title, intro, list, extraTabs = '', extra = null }
   const st = ui[view];
   const items = st.tab ? list.filter((a) => a.group === st.tab) : list;
   if (items.length && !items.some((a) => a.id === st.agent)) st.agent = items[0].id;
+  // Gambar ulang agen yang sama (mis. data server disegarkan) tidak boleh menghapus isian & hasil yang sedang tampil.
+  const oldForm = $(`[data-ag-form="${st.agent}"]`, root);
+  const kept = oldForm ? { values: readForm(oldForm), out: $('[data-ag-out]', root) } : null;
   root.innerHTML = `<div class="row-between"><h1>${title}</h1><span class="tag">${list.length} agen AI</span></div><p class="hint">${intro}</p>
     ${extraTabs}<div data-ag-body></div>`;
   const body = $('[data-ag-body]', root);
   if (extra && st.tab === extra.tab) { extra.render(body); return; }
   const a = byId[st.agent];
-  body.innerHTML = `${agentGrid(items, st.agent)}<div class="card ag-run">${agentForm(a, st.prefill || {})}</div>`;
+  body.innerHTML = `${agentGrid(items, st.agent)}<div class="card ag-run">${agentForm(a, st.prefill || kept?.values || {})}</div>`;
+  if (kept?.out && !st.prefill) $('[data-ag-out]', body).replaceWith(kept.out);
   if (st.prefill?.autorun) { delete st.prefill.autorun; runAgent(body, a, st.prefill); }
   delete st.prefill;
 }
@@ -650,4 +662,4 @@ bindAgents('agents-adv', renderAdv);
 bindFounder();
 // Data per brand (CS AI, riwayat agen) ikut berganti sendiri: switchBrand memanggil show() → viewHooks di atas.
 
-window.timAgents = { AGENTS, openAgent, verdict };
+window.timAgents = { AGENTS, TEAM, openAgent, verdict, generate, chat, parseJson, brandCtx, toPlanner };

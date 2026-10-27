@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
-    "build:vendor": "esbuild scripts/blob-client-entry.mjs --bundle --format=esm --platform=browser --minify --outfile=public/vendor/blob-client.js"
+    "build:vendor": "esbuild scripts/blob-client-entry.mjs --bundle --format=esm --platform=browser --minify --outfile=public/vendor/blob-client.js",
+    "build": "node build.mjs"
   },
   "engines": {
     "node": ">=22.13"

@@ -112,7 +112,9 @@ export function withStore(render) {
       return;
     }
     render(...args);
-    st.ready({ refresh: true }).then((changed) => { if (changed) render(...args); });
+    // Jangan gambar ulang saat pengguna sedang mengetik di halaman ini.
+    const typing = () => document.activeElement?.closest?.('.view.active') && document.activeElement.matches('input, textarea, select');
+    st.ready({ refresh: true }).then((changed) => { if (changed && !typing()) render(...args); });
   };
 }
 window.timStore.withStore = withStore;

@@ -43,3 +43,30 @@
 .td-dot { width: 8px; height: 8px; margin: 6px 4px 0; border-radius: 50%; background: var(--info); flex: none; }
 .td-empty { padding: 10px 0; border-top: 1px solid var(--line); margin: 0; }
 @media (max-width: 1100px) { .td-grid { grid-template-columns: 1fr; } }
+
+/* Ikon garis pengganti emoji (icons.js) */
+.ui-ic { width: 1.1em; height: 1.1em; vertical-align: -0.18em; flex: none; display: inline-block; }
+button .ui-ic, .btn .ui-ic, .tabs .ui-ic { margin-right: 6px; }
+button .ui-ic:last-child:not(:first-child) { margin: 0 0 0 6px; }
+.ag-ic .ui-ic, .vo-avatar .ui-ic { width: 20px; height: 20px; margin: 0; color: var(--accent); }
+.vo-room-head .ui-ic, .td-head .ui-ic, .org-th .ui-ic { color: var(--accent); margin-right: 4px; }
+
+/* Asisten AI (assistant.js) */
+.sb-assist { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-soft); color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sb-assist span { flex: 1; text-align: left; }
+.sb-assist .ui-ic { margin: 0; }
+.sb-collapsed .sb-assist span, .sb-collapsed .sb-assist kbd { display: none; }
+.asst { position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; width: min(440px, 100vw); display: flex; flex-direction: column; background: var(--card); border-left: 1px solid var(--line); box-shadow: -16px 0 40px rgba(15, 18, 30, .12); }
+.asst[hidden] { display: none; }
+.asst-head { display: flex; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.asst-head .hint { margin: 2px 0 0; }
+.asst-head .ui-ic { color: var(--accent); }
+.asst-body { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.asst-body .msg.user { align-self: flex-end; }
+.asst-ans { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); font-size: 14px; }
+.asst-ans .md { overflow-x: auto; }
+.asst-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.asst-chips button { text-align: left; }
+.asst-form { padding: 12px 16px 6px; border-top: 1px solid var(--line); }
+.asst-pick { padding: 0 16px 12px; margin: 0; }
+@media (min-width: 1200px) { .asst-open .workspace { margin-right: 440px; } }

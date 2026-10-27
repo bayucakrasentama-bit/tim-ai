@@ -7,12 +7,9 @@
 <link rel="icon" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <script>try{var t=localStorage.getItem('timai.theme');if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem('timai.sb')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/ds.css">
-  <link rel="stylesheet" href="/agents.css">
-  <link rel="stylesheet" href="/focus.css">
+  <link rel="stylesheet" href="/dist/app.min.css" onerror="this.remove();['style','ds','agents','focus'].forEach(function(n){var l=document.createElement('link');l.rel='stylesheet';l.href='/'+n+'.css';document.head.appendChild(l)})">
 </head>
 <body>
   <!-- Tata letak: sidebar kiri (menu per tim) + area kerja. Di HP sidebar jadi menu geser. -->
@@ -329,30 +326,7 @@
   <div class="toast" id="toast" hidden></div>
 
   <div class="tooltip" id="tooltip" hidden></div>
-  <script src="/app.js" type="module"></script>
-  <script src="/suite.js" type="module"></script>
-  <script src="/motion.js" type="module"></script>
-  <script src="/teams.js" type="module"></script>
-  <script src="/inbox.js" type="module"></script>
-<script src="/team-ai.js" type="module"></script>
-<script src="/ads.js" type="module"></script>
-<script src="/partner-tools.js" type="module"></script>
-<script src="/partners.js" type="module"></script>
-<script src="/lp-builder.js" type="module"></script>
-<script src="/integrations.js" type="module"></script>
-<script src="/ai-hub.js" type="module"></script>
-<script src="/ops.js" type="module"></script>
-<script src="/growth.js" type="module"></script>
-<script src="/bento.js" type="module"></script>
-<script src="/planner-views.js" type="module"></script>
-<script src="/divisions.js" type="module"></script>
-<script src="/medsos.js" type="module"></script>
-<script src="/studio-ai.js" type="module"></script>
-<script src="/store.js" type="module"></script>
-<script src="/agents.js" type="module"></script>
-<script src="/cs-closer.js" type="module"></script>
-<script src="/today.js" type="module"></script>
-<script src="/focus.js" type="module"></script>
-<script src="/shell.js" type="module"></script>
+<!-- Bundle hasil build (dist/) dipakai kalau ada; tanpa build, modul dimuat satu per satu lewat main.js. -->
+<script type="module">import('/dist/app.min.js').catch(() => import('/main.js'));</script>
 </body>
 </html>

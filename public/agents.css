@@ -5,7 +5,7 @@
 .ag-card.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
 .ag-card b { display: block; }
 .ag-card .hint { display: block; margin: 2px 0 4px; }
-.ag-ic { font-size: 22px; line-height: 1; flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--bg); }
+.ag-ic { font-size: 20px; line-height: 1; flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--bg); }
 .ag-head { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
 .ag-head h3 { margin: 0; }
 .ag-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
@@ -14,7 +14,7 @@
 .ag-out { margin-top: 14px; }
 .ag-result .md { margin-top: 6px; }
 .ag-hist { display: flex; flex-wrap: wrap; gap: 6px; }
-.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; }
 
 .tag.v-ok { background: var(--ok-soft); color: var(--ok); }
 .tag.v-info { background: var(--info-soft); color: var(--info); }
@@ -46,7 +46,7 @@
 .org-th { display: flex; gap: 8px; align-items: center; }
 .org-team .label { font-size: 12px; margin: 10px 0 6px; color: var(--muted); }
 .org-chips, .org-agents { display: flex; flex-wrap: wrap; gap: 6px; }
-.org-agent { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.org-agent { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; color: var(--text); cursor: pointer; }
 .org-agent:hover { border-color: var(--accent); color: var(--accent); }
 
 @media (max-width: 640px) {
@@ -74,7 +74,7 @@
 .vo-desk:hover, .vo-desk.active { border-color: var(--accent); }
 .vo-desk b { font-size: 12px; line-height: 1.2; }
 .vo-desk .hint { font-size: 11px; margin: 0; }
-.vo-avatar { position: relative; font-size: 24px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--card); border: 1px solid var(--line); }
+.vo-avatar { position: relative; font-size: 28px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--card); border: 1px solid var(--line); }
 .vo-dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--card); background: var(--muted); }
 .vo-dot.v-ok { background: var(--ok); } .vo-dot.v-warn { background: var(--warn); animation: vo-pulse 1s infinite; } .vo-dot.v-bad { background: var(--bad); } .vo-dot.v-ghost { background: var(--line); }
 @keyframes vo-pulse { 50% { opacity: .35; } }
