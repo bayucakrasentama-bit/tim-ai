@@ -1,0 +1,63 @@
+/* Agen AI per tim, CS AI Closing, Kantor AI (agents.js). Memakai token warna dari style.css / ds.css. */
+.ag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 12px 0 16px; }
+.ag-card { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 12px 14px; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius); cursor: pointer; color: var(--text); font: inherit; }
+.ag-card:hover { border-color: var(--accent); }
+.ag-card.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
+.ag-card b { display: block; }
+.ag-card .hint { display: block; margin: 2px 0 4px; }
+.ag-ic { font-size: 22px; line-height: 1; flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--bg); }
+.ag-head { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
+.ag-head h3 { margin: 0; }
+.ag-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+.ag-fields .ag-wide { grid-column: 1 / -1; }
+.ag-fields .label { margin: 10px 0 6px; font-size: 13px; }
+.ag-out { margin-top: 14px; }
+.ag-result .md { margin-top: 6px; }
+.ag-hist { display: flex; flex-wrap: wrap; gap: 6px; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; }
+
+.tag.v-ok { background: var(--ok-soft); color: var(--ok); }
+.tag.v-info { background: var(--info-soft); color: var(--info); }
+.tag.v-warn { background: var(--warn-soft); color: var(--warn); }
+.tag.v-bad { background: var(--bad-soft); color: var(--bad); }
+.tag.v-ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+.msg .tag.v-ok { display: inline-block; margin-top: 6px; }
+
+/* CS AI Closing */
+.cs-products input, .cs-products textarea { margin: 0; min-width: 110px; }
+.cs-products td { vertical-align: top; }
+.cs-chat { max-height: 58vh; min-height: 240px; padding: 4px; }
+.cs-sim .msg.assistant .md p:first-child { margin-top: 0; }
+.cs-sim .msg.assistant .md p:last-child { margin-bottom: 0; }
+
+/* Kantor AI */
+.fo-steps { display: flex; flex-direction: column; gap: 8px; }
+.fo-step { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); margin-bottom: 6px; }
+.fo-step > div { flex: 1; min-width: 0; }
+.fo-wa { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font: 14px/1.5 Inter, system-ui, sans-serif; max-height: 60vh; overflow: auto; }
+.btn-row.left { justify-content: flex-start; }
+
+.org-top { display: flex; flex-direction: column; align-items: center; }
+.org-node { display: flex; gap: 10px; align-items: center; padding: 12px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); min-width: 240px; }
+.org-node.lead { border-color: var(--accent); }
+.org-node.conductor { cursor: pointer; background: var(--accent-soft); border-color: var(--accent); }
+.org-line { width: 2px; height: 22px; background: var(--line); }
+.org-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; border-top: 2px solid var(--line); padding-top: 16px; }
+.org-th { display: flex; gap: 8px; align-items: center; }
+.org-team .label { font-size: 12px; margin: 10px 0 6px; color: var(--muted); }
+.org-chips, .org-agents { display: flex; flex-wrap: wrap; gap: 6px; }
+.org-agent { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.org-agent:hover { border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 640px) {
+  .ag-grid { grid-template-columns: 1fr; }
+  .fo-step { flex-wrap: wrap; }
+  .org-node { min-width: 0; width: 100%; }
+}
+
+/* CS AI Closing v2 (cs-closer.js) */
+.cs-plist { display: flex; flex-direction: column; gap: 10px; }
+.cs-prod { border: 1px solid var(--line); border-radius: 10px; padding: 4px 12px 8px; background: var(--bg); }
+.cs-media-wrap { margin: 6px 0; }
+.cs-media { display: block; max-width: 220px; max-height: 260px; border-radius: 10px; border: 1px solid var(--line); margin: 6px 0; }
+.nowrap { white-space: nowrap; }

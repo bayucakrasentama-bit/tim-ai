@@ -11,6 +11,7 @@
 <script>try{var t=localStorage.getItem('timai.theme');if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem('timai.sb')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/ds.css">
+  <link rel="stylesheet" href="/agents.css">
 </head>
 <body>
   <!-- Tata letak: sidebar kiri (menu per tim) + area kerja. Di HP sidebar jadi menu geser. -->
@@ -29,9 +30,9 @@
 <button data-view="planner" data-team="konten medsos">Planner</button>
 <button data-view="studio" data-team="konten digital">Studio Visual</button>
 <button data-view="motion" data-team="konten">Video Motion</button>
-<button data-view="ai" data-team="konten">AI Studio</button>
+<button data-view="ai" data-team="konten">AI Studio</button><button data-view="brandlab" data-team="konten">Brand Lab</button>
 <span class="nav-group" data-group="digital">Tim Digital</span>
-<button data-view="launch" data-team="digital">Launch Lab</button>
+<button data-view="launch" data-team="digital">Launch Lab</button><button data-view="agents-digital" data-team="digital">Agen Produk Digital</button>
 <span class="nav-group" data-group="medsos">Tim Medsos</span>
 <button data-view="calendar" data-team="konten medsos">Kalender</button>
 <button data-view="compose" data-team="medsos">Buat Post</button>
@@ -40,7 +41,7 @@
 <button data-view="tiktok" data-team="medsos konten">Scraper TikTok</button>
 <button data-view="accounts" data-team="medsos">Akun Sosmed</button>
 <span class="nav-group" data-group="adv">Tim ADV</span>
-<button data-view="adv" data-team="adv">Iklan ADV</button>
+<button data-view="adv" data-team="adv">Iklan ADV</button><button data-view="agents-adv" data-team="adv">Agen Meta Ads</button>
 <span class="nav-group" data-group="mp">Tim MP</span>
 <button data-view="mp" data-team="mp">Iklan Marketplace</button>
 <span class="nav-group" data-group="kol">Tim KOL</span>
@@ -49,7 +50,7 @@
 <button data-view="affiliate" data-team="affiliate">Kreator Affiliate</button>
 <span class="nav-group" data-group="cs">Tim CS</span>
 <button data-view="inbox" data-team="cs">Inbox</button>
-<button data-view="cs" data-team="cs">Tiket &amp; Template</button>
+<button data-view="cs" data-team="cs">Tiket &amp; Template</button><button data-view="closer" data-team="cs">CS AI Closing</button><span class="nav-group" data-group="founder">Tim Founder</span><button data-view="founder" data-team="founder">Kantor AI</button>
 <span class="nav-group" data-group="all">Pengaturan</span>
 <button data-view="aikeys" data-team="">AI &amp; API Keys</button>
 <button data-view="integrations" data-team="medsos adv mp kol affiliate">Integrasi Cepat</button>
@@ -130,6 +131,12 @@
 <section id="view-kol" class="view"></section>
 <section id="view-affiliate" class="view"></section>
 <section id="view-integrations" class="view"></section>
+<!-- AGEN AI PER TIM / CS AI CLOSING / KANTOR AI (diisi agents.js) -->
+<section id="view-brandlab" class="view"></section>
+<section id="view-agents-digital" class="view"></section>
+<section id="view-agents-adv" class="view"></section>
+<section id="view-closer" class="view"></section>
+<section id="view-founder" class="view"></section>
 <section id="view-aikeys" class="view"></section>
 
     <!-- ANALITIK -->
@@ -338,6 +345,8 @@
 <script src="/divisions.js" type="module"></script>
 <script src="/medsos.js" type="module"></script>
 <script src="/studio-ai.js" type="module"></script>
+<script src="/agents.js" type="module"></script>
+<script src="/cs-closer.js" type="module"></script>
 <script src="/shell.js" type="module"></script>
 </body>
 </html>
