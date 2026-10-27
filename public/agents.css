@@ -61,3 +61,29 @@
 .cs-media-wrap { margin: 6px 0; }
 .cs-media { display: block; max-width: 220px; max-height: 260px; border-radius: 10px; border: 1px solid var(--line); margin: 6px 0; }
 .nowrap { white-space: nowrap; }
+
+/* Kantor AI v2: Kantor Virtual & Keuangan */
+.vo-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+.vo-floor { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 14px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: repeating-linear-gradient(0deg, transparent 0 31px, var(--line) 31px 32px), repeating-linear-gradient(90deg, transparent 0 31px, var(--line) 31px 32px), var(--bg); }
+.vo-room { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; box-shadow: 0 2px 0 var(--line); }
+.vo-room-head { font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+.vo-meeting { border-style: dashed; border-color: var(--accent); }
+.vo-desks { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.vo-desk { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 8px; border: 1px solid var(--line); border-bottom-width: 4px; border-radius: 10px; background: var(--bg); cursor: pointer; font: inherit; color: var(--text); text-align: center; }
+.vo-desk:hover, .vo-desk.active { border-color: var(--accent); }
+.vo-desk b { font-size: 12px; line-height: 1.2; }
+.vo-desk .hint { font-size: 11px; margin: 0; }
+.vo-avatar { position: relative; font-size: 24px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--card); border: 1px solid var(--line); }
+.vo-dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--card); background: var(--muted); }
+.vo-dot.v-ok { background: var(--ok); } .vo-dot.v-warn { background: var(--warn); animation: vo-pulse 1s infinite; } .vo-dot.v-bad { background: var(--bad); } .vo-dot.v-ghost { background: var(--line); }
+@keyframes vo-pulse { 50% { opacity: .35; } }
+.vo-side { position: sticky; top: 12px; }
+.vo-log { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.fin-chart { display: flex; align-items: flex-end; gap: 3px; height: 160px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.fin-day { flex: 1; display: flex; align-items: flex-end; gap: 1px; height: 100%; min-width: 4px; }
+.fin-bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 1px; }
+.fin-bar.spend, .fin-key.spend { background: var(--bad); opacity: .75; }
+.fin-bar.rev, .fin-key.rev { background: var(--ok); }
+.fin-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 8px; vertical-align: middle; }
+@media (max-width: 900px) { .vo-wrap { grid-template-columns: 1fr; } .vo-side { position: static; } }

@@ -8,12 +8,13 @@ Hasil riset 3 halaman (paket 16 asisten ChatGPT bisnis, Komchat AI, C-Founder) d
 | Tim Digital | **Agen Produk Digital** | Product Builder, eBook Creator, LP Storytelling, Audit Konversi LP | asisten produk digital & LP |
 | Tim ADV | **Agen Meta Ads** | Kreatif: Hook & Headline, Iklan Emosional, Big Concept · Performa: Automated Rules, Lead Gen & CPL, Retargeting, Scaling, Performance Analyzer · **Kalkulator tanpa AI**: rencana scaling budget 3–7 hari & vonis SCALE/HOLD/OPTIMIZE/KILL | asisten Meta Ads |
 | Tim CS | **CS AI Closing** | Multi agent (1 nomor WA = 1 agent, maks. 5 produk), product knowledge + foto/video/testimoni yang dikirim di chat, tarif ongkir per ekspedisi & zona + cek ongkir, promo terstruktur (diskon %, potongan, bundling, gratis ongkir), simulator chat sampai closing, total order dihitung ulang sistem, struk/receipt WhatsApp, Data Order AI + export CSV, follow-up otomatis, Broadcast WA, prompt siap pasang di Inbox | Komchat AI |
-| **Tim Founder (baru)** | **Kantor AI** | Conductor (perintah bahasa biasa → agen + kartu Planner + jadwal), Laporan Pagi lintas tim → WhatsApp/Telegram, Struktur Tim (peta tim, menu & agen) | C-Founder |
+| **Tim Founder (baru)** | **Kantor AI** | Conductor (perintah bahasa biasa → agen + kartu Planner + jadwal), **Kantor Virtual** (ruang per tim, meja per agen, status berjalan/selesai/gagal + log aktivitas), **Keuangan** (spend iklan ADV+MP, ROAS per kanal, omzet CS AI, blended ROAS dari omzet riil), **Laporan Pagi otomatis** dari server lewat cron ke Telegram/WhatsApp, Struktur Tim | C-Founder |
 
 ## File yang berubah
 
 - `public/agents.js` — **baru**, semua logika fitur di atas (pola sama dengan modul lain: `window.siarin`, `viewHooks`).
 - `public/cs-closer.js` — **baru**, CS AI Closing (dipisah dari agents.js; Kantor AI membaca datanya lewat `window.timCs`).
+- `src/founder.js` — **baru (backend)**, pengaturan & pengiriman laporan pagi (`/api/founder/settings`, `/api/founder/brief`), dijalankan `/api/cron`. Event notifikasi baru `founder_brief` di `src/notify.js`.
 - `public/agents.css` — **baru**, gaya tambahan memakai token warna yang ada.
 - `public/index.html` — 5 tombol menu + grup "Tim Founder", 5 `<section>` kosong, `<link agents.css>`, `<script agents.js>` + `<script cs-closer.js>` (sebelum `shell.js`).
 - `public/app.js` — ikon 5 menu baru, `founder` di `TEAM_LABEL` & `TEAM_HOME`.
@@ -27,7 +28,7 @@ Semua AI memakai endpoint yang sudah ada (`/api/ai/status`, `/api/ai/chat`, `/ap
 
 1. Pengaturan CS AI (agent, ongkir, promo), Data Order AI, daftar broadcast, riwayat agen, jadwal → pindahkan ke tabel per brand supaya bisa dilihat lintas perangkat.
 2. Tim Founder → backend perlu menerima nilai tim `founder` saat menambah anggota (sekarang owner/`semua` sudah melihat menunya).
-3. Laporan pagi otomatis tanpa membuka aplikasi → cron (mis. Vercel Cron) yang menyusun laporan dan mengirim lewat kanal `/api/notify` yang sudah ada.
+3. ✅ Laporan pagi otomatis sudah jalan di server (cron Vercel 06.00 WIB).
 4. Broadcast massal tanpa klik satu per satu → kirim CSV/daftar ke gateway WhatsApp lewat backend.
 5. CS AI langsung membalas WhatsApp → sambungkan prompt dari tab "Pasang di Inbox" ke aturan balas otomatis Inbox.
 

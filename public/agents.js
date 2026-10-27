@@ -186,6 +186,7 @@ async function runAgent(box, a, values) {
   if (missing.length) return toast(`Isi dulu: ${missing.map((f) => f.label).join(', ')}`);
   out.innerHTML = `<div class="card"><span class="spinner inline"></span> ${esc(a.name)} lagi bekerja… (20–60 detik)</div><div class="spinner"></div>`;
   const brief = a.fields.filter((f) => String(values[f.k] || '').trim()).map((f) => `- ${f.label}: ${values[f.k]}`).join('\n');
+  const act = logActivity({ agent: a.id, status: 'running', title: String(Object.values(values).find(Boolean) || '').slice(0, 60) });
   try {
     const text = await chat(`${a.sys}${brandCtx()} ${BASE}`, `Brief:\n${brief}\n\nSusun hasil dengan format berikut:\n${a.out}`);
     out.innerHTML = outHtml(a, text);
@@ -193,9 +194,19 @@ async function runAgent(box, a, values) {
     const hist = [{ at: Date.now(), values, text }, ...history(a.id)].slice(0, 8);
     store.set(`hist.${a.id}`, hist);
     const u = usage(); u[a.id] = (u[a.id] || 0) + 1; store.set('usage', u);
+    logActivity({ ...act, status: 'done', end: Date.now() });
   } catch (ex) {
     out.innerHTML = `<div class="check bad">⚠️ ${esc(ex.message)}</div>`;
+    logActivity({ ...act, status: 'failed', end: Date.now(), error: ex.message });
   }
+}
+// Log aktivitas agen (dipakai Kantor Virtual): satu baris per tugas, statusnya berjalan → selesai / gagal.
+const activity = () => store.get('activity', []);
+function logActivity(entry) {
+  const e = { id: entry.id || Date.now(), at: entry.at || Date.now(), ...entry };
+  store.set('activity', [e, ...activity().filter((x) => x.id !== e.id)].slice(0, 60));
+  if (document.getElementById('view-founder')?.classList.contains('active') && fo.tab === 'office') renderFounder();
+  return e;
 }
 async function toPlanner(title, notes) {
   try {
@@ -386,11 +397,11 @@ const fo = { tab: 'conductor', plan: null, busy: false, brief: '' };
 function renderFounder() {
   const root = document.getElementById('view-founder');
   root.innerHTML = `<div class="row-between"><h1>Kantor AI</h1><span class="tag">Tim Founder</span></div>
-    <p class="hint"><b>Tim Founder</b> (owner / manajer): perintah dalam bahasa biasa ke <b>Conductor</b>, laporan pagi lintas tim ke WhatsApp/Telegram, dan peta semua tim beserta agen AI-nya.</p>
-    <div class="tabs">${[['conductor', 'Conductor'], ['brief', 'Laporan Pagi'], ['org', 'Struktur Tim']].map(([k, l]) => `<button data-fo-tab="${k}" class="${fo.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div>
+    <p class="hint"><b>Tim Founder</b> (owner / manajer): perintah dalam bahasa biasa ke <b>Conductor</b>, kantor virtual berisi semua agen AI, keuangan iklan vs omzet, laporan pagi otomatis ke WhatsApp/Telegram, dan struktur tim.</p>
+    <div class="tabs">${[['conductor', 'Conductor'], ['office', 'Kantor Virtual'], ['finance', 'Keuangan'], ['brief', 'Laporan Pagi'], ['org', 'Struktur Tim']].map(([k, l]) => `<button data-fo-tab="${k}" class="${fo.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div>
     <div data-fo-body></div>`;
   const body = $('[data-fo-body]', root);
-  ({ conductor: foConductor, brief: foBrief, org: foOrg })[fo.tab](body);
+  ({ conductor: foConductor, office: foOffice, finance: foFinance, brief: foBrief, org: foOrg })[fo.tab](body);
 }
 const EXAMPLES = [
   'Minggu depan launching eBook resep diet, siapkan produk, landing page, dan iklannya',
@@ -411,7 +422,7 @@ function foConductor(body) {
         <div class="btn-row"><button class="ghost small" data-fo-alltasks>Buat semua kartu</button></div>` : ''}
       ${p.schedule?.what ? `<div class="label">Jadwal rutin</div><div class="fo-step"><span class="ag-ic">⏰</span><div><b>${esc(p.schedule.when || '')}</b><div class="hint">${esc(p.schedule.what)}</div></div><button class="ghost small" data-fo-sched>Simpan jadwal</button></div>` : ''}</div>` : ''}
     ${sched.length ? `<div class="card"><div class="label">Jadwal rutin tersimpan</div>${sched.map((s, i) => `<div class="fo-step"><span class="ag-ic">⏰</span><div><b>${esc(s.when)}</b><div class="hint">${esc(s.what)}</div></div><button class="link" data-fo-unsched="${i}">Hapus</button></div>`).join('')}
-      <p class="hint">Jadwal disimpan di browser ini sebagai pengingat di Laporan Pagi. Untuk kirim otomatis tanpa membuka aplikasi, butuh cron di backend (lihat catatan rilis).</p></div>` : ''}`;
+      <p class="hint">Jadwal ini pengingat di browser. Laporan pagi yang terkirim otomatis tiap hari diatur di tab <b>Laporan Pagi</b>.</p></div>` : ''}`;
 }
 async function conduct(cmd) {
   fo.cmd = cmd; fo.busy = true; fo.plan = null; renderFounder();
@@ -439,54 +450,139 @@ Pilih 1-5 agen yang paling relevan dan 0-6 tugas tim. Jangan mengarang id agen.`
 }
 const taskCard = (t) => api('/api/content', json('POST', { title: `[${TEAM[t.team]?.label || t.team}] ${t.title}`.slice(0, 80), status: 'ide', notes: `Dari Conductor (Kantor AI)\nPerintah: ${fo.cmd}\n\n${t.detail || ''}${t.due ? `\nTenggat: ${t.due}` : ''}` }));
 
-function foBrief(body) {
-  const sel = store.get('fo.teams', ['adv', 'mp', 'medsos', 'cs']);
-  const days = store.get('fo.days', 1);
-  const sched = store.get('fo.sched', []);
-  body.innerHTML = `<div class="card"><div class="label">Laporan pagi lintas tim</div>
-    <p class="hint">Menarik laporan tiap tim (sama dengan halaman Laporan & Master BCS) + pipeline Planner, lalu dirangkum jadi pesan WhatsApp yang siap dikirim ke grup owner/tim.</p>
-    <div class="checks">${REPORT_TEAMS.map((t) => `<label><input type="checkbox" name="fo-team" value="${t}" ${sel.includes(t) ? 'checked' : ''}> ${TEAM[t].label}</label>`).join('')}</div>
-    <div class="row-between"><select data-fo-days>${[[1, 'Kemarin (1 hari)'], [7, '7 hari'], [30, '30 hari']].map(([v, l]) => `<option value="${v}" ${v === days ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <button class="primary" data-fo-brief ${fo.busy ? 'disabled' : ''}>Susun laporan pagi</button></div>
-    ${sched.length ? `<p class="hint">⏰ Jadwal rutin: ${sched.map((s) => `<b>${esc(s.when)}</b> — ${esc(s.what)}`).join(' · ')}</p>` : ''}</div>
-    ${fo.busy ? '<div class="spinner"></div>' : ''}
-    ${fo.brief ? `<div class="card"><div class="row-between"><div class="label">Pratinjau pesan</div><div class="btn-row">
-      <button class="ghost small" data-fo-bcopy>Salin</button><a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(fo.brief)}">Kirim ke WhatsApp</a>
-      <a class="btn small" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(location.origin)}&text=${encodeURIComponent(fo.brief)}">Kirim ke Telegram</a></div></div>
-      <pre class="fo-wa">${esc(fo.brief)}</pre></div>` : ''}`;
+// ---------- Laporan Pagi: diatur & dikirim backend (src/founder.js) lewat /api/cron ----------
+let foCfg = null;
+async function foBrief(body) {
+  if (!foCfg) {
+    body.innerHTML = '<div class="spinner"></div>';
+    try { foCfg = await api('/api/founder/settings'); } catch (ex) { body.innerHTML = `<div class="check bad">⚠️ ${esc(ex.message)}</div>`; return; }
+    if (fo.tab === 'brief') renderFounder();
+    return;
+  }
+  const c = foCfg;
+  const ed = c.can_edit;
+  body.innerHTML = `<div class="grid-2"><div class="card"><div class="label">Laporan pagi otomatis</div>
+      <p class="hint">Setiap pagi server menyusun laporan dari tim yang dipilih (sama dengan halaman Laporan & Master BCS) + pipeline Planner, lalu mengirimnya ke kanal notifikasi brand ini (Telegram / gateway WhatsApp di <b>Planner → 🔔 Notifikasi</b>). Tetap jalan walaupun tidak ada yang membuka aplikasi.</p>
+      <form data-fo-bcfg>
+        <label class="toggle"><input type="checkbox" name="enabled" ${c.enabled ? 'checked' : ''} ${ed ? '' : 'disabled'}> Kirim laporan pagi otomatis setiap hari</label>
+        <div class="ag-fields"><div><label class="label">Jam kirim (WIB)</label><select name="hour" ${ed ? '' : 'disabled'}>${Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${h === c.hour ? 'selected' : ''}>${String(h).padStart(2, '0')}.00</option>`).join('')}</select></div>
+        <div><label class="label">Periode data</label><select name="days" ${ed ? '' : 'disabled'}>${[[1, 'Kemarin (1 hari)'], [7, '7 hari'], [30, '30 hari']].map(([v, l]) => `<option value="${v}" ${v === c.days ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
+        <div class="label">Tim yang dilaporkan</div>
+        <div class="checks">${c.teams_available.map((t) => `<label><input type="checkbox" name="team" value="${t}" ${c.teams.includes(t) ? 'checked' : ''} ${ed ? '' : 'disabled'}> ${esc(TEAM[t]?.label || t)}</label>`).join('')}</div>
+        <p class="hint">Cron Vercel project ini berjalan sekali sehari pukul 06.00 WIB, jadi pilih jam 06.00 atau lebih awal (laporan terkirim di jam cron pertama setelah jam kirim). ${c.last_sent ? `Terakhir terkirim: <b>${esc(c.last_sent)}</b>.` : 'Belum pernah terkirim.'}</p>
+        ${ed ? '<div class="btn-row"><button class="primary">Simpan jadwal</button></div>' : '<p class="hint">Cuma pemilik/admin yang bisa mengubah jadwal.</p>'}
+      </form></div>
+    <div class="card"><div class="label">Coba sekarang</div>
+      <p class="hint">Susun laporan dengan pengaturan di samping. Kirim ke kanal notifikasi, atau bagikan manual.</p>
+      <div class="btn-row left"><button class="ghost" data-fo-brief ${fo.busy ? 'disabled' : ''}>Susun pratinjau</button><button class="primary" data-fo-bsend ${fo.busy ? 'disabled' : ''}>Susun & kirim ke kanal notifikasi</button></div>
+      ${fo.busy ? '<div class="spinner"></div>' : ''}
+      ${fo.brief ? `<div class="row-between"><div class="label">Pratinjau pesan</div><div class="btn-row">
+        <button class="ghost small" data-fo-bcopy>Salin</button><a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(fo.brief)}">WhatsApp</a>
+        <a class="btn small" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(location.origin)}&text=${encodeURIComponent(fo.brief)}">Telegram</a></div></div>
+        <pre class="fo-wa">${esc(fo.brief)}</pre>` : ''}</div></div>`;
 }
-async function morningBrief(body) {
-  const teams = $$('[name="fo-team"]:checked', body).map((i) => i.value);
-  const days = Number($('[data-fo-days]', body).value);
-  store.set('fo.teams', teams);
-  store.set('fo.days', days);
-  if (!teams.length) return toast('Pilih minimal satu tim');
+const readBriefCfg = (form) => {
+  const f = new FormData(form);
+  return { enabled: f.get('enabled') === 'on', hour: Number(f.get('hour')), days: Number(f.get('days')), teams: f.getAll('team') };
+};
+async function morningBrief(root, send) {
+  const form = $('[data-fo-bcfg]', root);
+  const c = form ? readBriefCfg(form) : foCfg;
+  if (!c.teams.length) return toast('Pilih minimal satu tim');
   fo.busy = true; renderFounder();
-  const trim = (o) => JSON.stringify(o).slice(0, 3500);
-  const reports = await Promise.all(teams.map((t) => api(`/api/reports/team/${t}?from=${encodeURIComponent(since(days))}`).then((r) => `### ${TEAM[t].label}\n${trim(r)}`).catch((ex) => `### ${TEAM[t].label}\n(laporan tidak bisa diambil: ${ex.message})`)));
-  const content = await api('/api/content').catch(() => []);
-  const pipe = content.reduce((m, c) => ((m[c.status] = (m[c.status] || 0) + 1), m), {});
-  const orders = (window.timCs?.orders() || []).filter((o) => o.status !== 'batal' && Date.parse(o.at) >= Date.now() - days * 86400_000);
-  const date = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   try {
-    fo.brief = await chat(`Kamu chief of staff yang menulis laporan pagi untuk owner bisnis.${brandCtx()} Tulis untuk WhatsApp: *tebal* pakai satu bintang, tanpa tabel, tanpa heading Markdown, maks 1.200 karakter. Jangan mengarang angka; kalau data kosong tulis "data belum masuk".`,
-      `Tanggal: ${date}. Periode: ${days} hari terakhir.
-Data laporan tim (JSON mentah):
-${reports.join('\n\n')}
-
-Pipeline Planner: ${JSON.stringify(pipe)}
-Order CS AI periode ini: ${orders.length} order, omzet ${rp(orders.reduce((s, o) => s + N(o.total), 0))}
-
-Format:
-☀️ *Laporan Pagi ${brand()?.name || ''}* — ${date}
-lalu per tim 1-3 poin dengan angka kunci (spend, omzet, ROAS, konten tayang, chat/order),
-lalu *Keputusan hari ini* (3 poin, sebut tim penanggung jawab), lalu *Perlu perhatian* (risiko/data gap).`, { temperature: 0.3, max_tokens: 1200 });
+    const r = await api('/api/founder/brief', json('POST', { teams: c.teams, days: c.days, send }));
+    fo.brief = r.text;
+    if (send) toast(r.sent?.sent ? `Terkirim ke ${r.sent.sent} kanal` : `Belum terkirim${r.sent?.errors?.length ? `: ${r.sent.errors.join('; ')}` : ' — atur kanal di Planner → 🔔 Notifikasi'}`);
   } catch (ex) {
     fo.brief = `⚠️ ${ex.message}`;
   }
   fo.busy = false;
   renderFounder();
 }
+
+// ---------- Keuangan: spend iklan vs omzet, ROAS per kanal, blended ROAS ----------
+const fin = { days: 30, data: null, loading: false };
+async function loadFinance() {
+  fin.loading = true;
+  const q = `from=${encodeURIComponent(since(fin.days))}`;
+  const [adv, mp] = await Promise.all(['adv', 'mp'].map((t) => api(`/api/reports/team/${t}?${q}`).catch(() => null)));
+  fin.data = { adv, mp, at: fin.days };
+  fin.loading = false;
+}
+function foFinance(body) {
+  if (!fin.data || fin.data.at !== fin.days) {
+    body.innerHTML = '<div class="spinner"></div>';
+    if (!fin.loading) loadFinance().then(() => fo.tab === 'finance' && renderFounder());
+    return;
+  }
+  const { adv, mp } = fin.data;
+  const t = (r) => r?.totals || { spend: 0, revenue: 0, conversions: 0 };
+  const cutoff = Date.now() - fin.days * 86400_000;
+  const csOrders = (window.timCs?.orders() || []).filter((o) => o.status !== 'batal' && Date.parse(o.at) >= cutoff);
+  const csOmzet = csOrders.reduce((s, o) => s + N(o.total), 0);
+  const manual = store.get(`fin.manual.${fin.days}`, '');
+  const spend = t(adv).spend + t(mp).spend;
+  const tracked = t(adv).revenue + t(mp).revenue + csOmzet;
+  const real = N(manual) || tracked;
+  const blended = spend ? real / spend : null;
+  const rows = [...(adv?.byPlatform || []).map((p) => ({ ...p, team: 'Tim ADV' })), ...(mp?.byPlatform || []).map((p) => ({ ...p, team: 'Tim MP' }))];
+  const daily = new Map();
+  for (const d of [...(adv?.daily || []), ...(mp?.daily || [])]) {
+    const x = daily.get(d.day) || { spend: 0, revenue: 0 };
+    daily.set(d.day, { spend: x.spend + d.spend, revenue: x.revenue + d.revenue });
+  }
+  const days = [...daily].sort(([a], [b]) => (a < b ? -1 : 1)).slice(-31);
+  const max = Math.max(1, ...days.map(([, v]) => Math.max(v.spend, v.revenue)));
+  body.innerHTML = `<div class="row-between"><p class="hint">Gabungan semua brand yang bisa kamu akses: iklan Meta/TikTok/Google (Tim ADV), iklan marketplace (Tim MP), dan order CS AI.</p>
+      <select data-fin-days>${[[7, '7 hari'], [30, '30 hari'], [90, '90 hari']].map(([v, l]) => `<option value="${v}" ${v === fin.days ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+    <div class="kpi-row">${[
+      ['Total spend iklan', rp(spend), `ADV ${rp(t(adv).spend)} · MP ${rp(t(mp).spend)}`],
+      ['ROAS iklan ADV', x2(t(adv).spend ? t(adv).revenue / t(adv).spend : null), `omzet pixel ${rp(t(adv).revenue)}`],
+      ['ROAS marketplace', x2(t(mp).spend ? t(mp).revenue / t(mp).spend : null), `GMV ${rp(t(mp).revenue)}`],
+      ['Omzet CS AI', rp(csOmzet), `${csOrders.length} order`],
+      ['Blended ROAS', x2(blended), N(manual) ? 'dari omzet riil yang diisi' : 'dari omzet tercatat'],
+    ].map(([l, v, s]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div><div class="kpi-sub">${s}</div></div>`).join('')}</div>
+    <div class="grid-2"><div class="card"><div class="label">Spend vs omzet harian</div>
+      ${days.length ? `<div class="fin-chart">${days.map(([d, v]) => `<div class="fin-day" title="${esc(d)} · spend ${rp(v.spend)} · omzet ${rp(v.revenue)}"><span class="fin-bar spend" style="height:${(v.spend / max) * 100}%"></span><span class="fin-bar rev" style="height:${(v.revenue / max) * 100}%"></span></div>`).join('')}</div>
+        <div class="hint"><span class="fin-key spend"></span> spend <span class="fin-key rev"></span> omzet iklan · ${esc(days[0][0])} – ${esc(days.at(-1)[0])}</div>` : '<p class="hint">Belum ada data iklan harian. Hubungkan akun iklan di Tim ADV / Tim MP.</p>'}</div>
+    <div class="card"><div class="label">Omzet riil (opsional)</div>
+      <p class="hint">Pixel & marketplace hanya menangkap sebagian penjualan. Isi omzet riil periode ini (semua kanal: website, WhatsApp, marketplace, Lynk.id, dll.) supaya blended ROAS = omzet riil ÷ total spend.</p>
+      <input data-fin-manual value="${esc(manual)}" placeholder="mis. 25000000">
+      <table class="data"><tbody><tr><td>Omzet tercatat (pixel + GMV + CS AI)</td><td><b>${rp(tracked)}</b></td></tr><tr><td>Omzet riil dipakai</td><td><b>${rp(real)}</b></td></tr><tr><td>Total spend</td><td><b>${rp(spend)}</b></td></tr><tr><td>Laba kotor setelah iklan (sebelum HPP)</td><td><b>${rp(real - spend)}</b></td></tr></tbody></table></div></div>
+    <div class="card"><div class="label">Per kanal iklan</div><div class="table-wrap"><table class="data"><thead><tr><th>Kanal</th><th>Tim</th><th>Spend</th><th>Omzet</th><th>ROAS</th><th>Konversi</th><th>CPA</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td><b>${esc(r.key)}</b></td><td>${r.team}</td><td>${rp(r.spend)}</td><td>${rp(r.revenue)}</td><td>${x2(r.roas)}</td><td>${N(r.conversions).toLocaleString('id-ID')}</td><td>${rp(r.cpa)}</td></tr>`).join('') || '<tr><td colspan="7" class="hint">Belum ada akun iklan yang tersambung.</td></tr>'}
+    </tbody></table></div></div>`;
+}
+
+// ---------- Kantor Virtual: ruang per tim, meja per agen, status dari log aktivitas ----------
+const STATUS = { running: ['Berjalan', 'warn'], done: ['Selesai', 'ok'], failed: ['Gagal', 'bad'], idle: ['Siaga', 'ghost'] };
+const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'baru saja' : m < 60 ? `${m} mnt lalu` : m < 1440 ? `${Math.round(m / 60)} jam lalu` : `${Math.round(m / 1440)} hari lalu`; };
+function foOffice(body) {
+  const log = activity();
+  // Tugas "berjalan" yang tertinggal > 10 menit (tab ditutup di tengah jalan) dianggap gagal.
+  const last = (id) => { const e = log.find((x) => x.agent === id); return e && e.status === 'running' && Date.now() - e.at > 600000 ? { ...e, status: 'failed', error: 'terputus' } : e; };
+  const sel = fo.desk ? byId[fo.desk] : null;
+  const rooms = Object.entries(TEAM).filter(([k]) => AGENTS.some((a) => a.team === k) || k === 'cs');
+  const desk = (id, icon, name, sub, st, extra = '') => `<button class="vo-desk ${fo.desk === id ? 'active' : ''}" data-fo-desk="${id}" ${extra}>
+      <span class="vo-avatar">${icon}<i class="vo-dot v-${STATUS[st][1]}"></i></span><b>${esc(name)}</b><span class="hint">${esc(sub)}</span></button>`;
+  const running = log.filter((e) => e.status === 'running' && Date.now() - e.at <= 600000).length;
+  body.innerHTML = `<div class="kpi-row">${[['Agen AI', AGENTS.length + (window.timCs?.agents() || []).length], ['Sedang berjalan', running], ['Tugas selesai', log.filter((e) => e.status === 'done').length], ['Gagal', log.filter((e) => e.status === 'failed').length]]
+      .map(([l, v]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`).join('')}</div>
+    <div class="vo-wrap"><div class="vo-floor">${rooms.map(([k, t]) => `<div class="vo-room"><div class="vo-room-head">${t.icon} ${t.label}</div><div class="vo-desks">
+        ${AGENTS.filter((a) => a.team === k).map((a) => { const e = last(a.id); return desk(a.id, a.icon, a.name, e ? `${STATUS[e.status][0]} · ${ago(e.end || e.at)}` : 'Siaga', e?.status || 'idle'); }).join('')}
+        ${k === 'cs' ? (window.timCs?.agents() || []).map((c) => desk(`cs:${c.id}`, '🤖', c.agent, c.active ? 'CS AI · aktif 24/7' : 'CS AI · nonaktif', c.active ? 'done' : 'idle', 'data-fo-go="closer"')).join('') : ''}
+      </div></div>`).join('')}
+      <div class="vo-room vo-meeting"><div class="vo-room-head">🎼 Ruang Conductor</div><div class="vo-desks">${desk('conductor', '🎼', 'Conductor', fo.plan ? 'Rencana terakhir siap' : 'Menunggu perintah', fo.busy ? 'running' : fo.plan ? 'done' : 'idle', 'data-fo-tab="conductor"')}</div></div></div>
+    <div class="card vo-side">${sel ? `<div class="ag-head"><span class="ag-ic">${sel.icon}</span><div><h3>${esc(sel.name)}</h3><div class="hint">${esc(TEAM[sel.team].label)} · ${esc(sel.role)}</div></div></div>
+        <div class="label">Tugas</div><p class="hint">${esc(sel.desc)}</p>
+        <div class="label">Tools / input</div><div class="org-chips">${sel.fields.map((f) => `<span class="tag ghost">${esc(f.label)}</span>`).join('')}</div>
+        <div class="label">Aktivitas</div>${log.filter((e) => e.agent === sel.id).slice(0, 8).map((e) => `<div class="vo-log"><span class="tag v-${STATUS[e.status][1]}">${STATUS[e.status][0]}</span> ${esc(e.title || '—')} <span class="hint">${ago(e.end || e.at)}${e.error ? ` · ${esc(e.error)}` : ''}</span></div>`).join('') || '<p class="hint">Belum ada aktivitas tercatat.</p>'}
+        <div class="btn-row"><button class="primary" data-fo-agent="${sel.id}">Beri tugas →</button></div>`
+      : `<div class="label">Log aktivitas terbaru</div>${log.slice(0, 12).map((e) => `<div class="vo-log"><span class="tag v-${STATUS[e.status][1]}">${STATUS[e.status][0]}</span> <b>${esc(byId[e.agent]?.name || e.agent)}</b> ${esc(e.title || '')} <span class="hint">${ago(e.end || e.at)}</span></div>`).join('') || '<p class="hint">Klik meja agen untuk melihat tugas, tools, dan aktivitasnya. Aktivitas muncul setelah agen dijalankan.</p>'}
+        <p class="hint">Status mengikuti aktivitas yang tercatat di browser ini.</p>`}</div></div>`;
+}
+
 function foOrg(body) {
   const u = usage();
   const me = state.me?.user;
@@ -515,13 +611,27 @@ function bindFounder() {
     }
     if (d.foSched !== undefined) { store.set('fo.sched', [...store.get('fo.sched', []), fo.plan.schedule]); toast('Jadwal tersimpan'); renderFounder(); }
     if (d.foUnsched) { const s = store.get('fo.sched', []); s.splice(Number(d.foUnsched), 1); store.set('fo.sched', s); renderFounder(); }
-    if (d.foBrief !== undefined) morningBrief(root);
+    if (d.foBrief !== undefined) morningBrief(root, false);
+    if (d.foBsend !== undefined) morningBrief(root, true);
+    if (d.foDesk) { fo.desk = fo.desk === d.foDesk ? null : d.foDesk; if (!d.foDesk.startsWith('cs:') && d.foDesk !== 'conductor') renderFounder(); }
     if (d.foBcopy !== undefined) copy(fo.brief, 'Laporan pagi disalin');
     if (d.foGo) { if (d.foGo === 'founder') { fo.tab = 'conductor'; renderFounder(); } else S.show(d.foGo); }
     if (d.foAgent) openAgent(d.foAgent);
   });
-  root.addEventListener('submit', (e) => {
+  root.addEventListener('change', (e) => {
+    if (e.target.matches('[data-fin-days]')) { fin.days = Number(e.target.value); renderFounder(); }
+    if (e.target.matches('[data-fin-manual]')) { store.set(`fin.manual.${fin.days}`, e.target.value.trim()); renderFounder(); }
+  });
+  root.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (e.target.matches('[data-fo-bcfg]')) {
+      try {
+        foCfg = { ...foCfg, ...(await api('/api/founder/settings', json('PUT', readBriefCfg(e.target)))) };
+        toast(foCfg.enabled ? `Laporan pagi aktif tiap ${String(foCfg.hour).padStart(2, '0')}.00 WIB` : 'Laporan pagi otomatis dimatikan');
+        renderFounder();
+      } catch (ex) { toast(ex.message); }
+      return;
+    }
     const t = $('textarea', e.target)?.value.trim();
     if (e.target.matches('[data-fo-cmd]') && t && !fo.busy) conduct(t);
   });

@@ -11,6 +11,7 @@ import { publishPost, claimPost, runDue } from './publisher.js';
 import { createAuth, cronAllowed, canManage } from './auth.js';
 import { aiRouterRoutes } from './ai-router.js';
 import { opsRoutes, notifyFailedPosts } from './ops.js';
+import { founderRoutes, runFounderBriefs } from './founder.js';
 import { brandScope, teamRoutes } from './team.js';
 import { plannerRoutes, syncContentWithPost, unlinkPost } from './planner.js';
 import { analyticsRoutes, syncIfStale } from './analytics.js';
@@ -100,6 +101,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
     background(syncStaleAds(db));
     background(refreshTrackedPosts(db));
     background(notifyFailedPosts(db));
+    background(runFounderBriefs(db, username));
     res.json({ ok: true, publishing: claimed });
   });
 
@@ -174,6 +176,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   connectRoutes(app, db, scope);
   inboxRoutes(app, db, scope, { storage, ownerUsername: username });
   reportRoutes(app, db, scope, { ownerUsername: username });
+  founderRoutes(app, db, scope, { ownerUsername: username });
 
   // ---- Akun ----
   const publicAccount = (a) => {

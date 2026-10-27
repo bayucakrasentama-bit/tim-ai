@@ -9,6 +9,7 @@ export const NOTIFY_EVENTS = {
   revision: 'Kartu diminta revisi',
   approve: 'Kartu di-approve',
   post_failed: 'Post gagal / sebagian gagal',
+  founder_brief: 'Laporan pagi (Kantor AI)',
 };
 const key = (brandId) => `notify:${brandId}`;
 
