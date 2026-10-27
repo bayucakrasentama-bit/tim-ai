@@ -53,6 +53,7 @@ const statusPill = (s) => `<span class="status st-${s}">${STATUS_LABEL[s] || s}<
 // ---------- Navigasi ----------
 // Ikon menu (garis sederhana, 24x24).
 const ICONS = {
+  today: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
   reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   planner: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
@@ -824,7 +825,7 @@ $('#nav-more').addEventListener('click', () => {
   const open = $('#nav').classList.toggle('show-all');
   $('#nav-more').textContent = open ? 'Menu tim saja ▴' : 'Semua menu ▾';
 });
-const TEAM_HOME = { konten: 'planner', medsos: 'calendar', digital: 'launch', adv: 'adv', mp: 'mp', kol: 'kol', affiliate: 'affiliate', cs: 'inbox', founder: 'founder', semua: 'dashboard' };
+const TEAM_HOME = { konten: 'planner', medsos: 'calendar', digital: 'launch', adv: 'adv', mp: 'mp', kol: 'kol', affiliate: 'affiliate', cs: 'inbox', founder: 'founder', semua: 'today' };
 
 // Dipakai suite.js (Dashboard, Planner, Analitik, AI, Tim).
 window.siarin = {

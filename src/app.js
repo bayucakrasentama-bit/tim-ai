@@ -12,6 +12,7 @@ import { createAuth, cronAllowed, canManage } from './auth.js';
 import { aiRouterRoutes } from './ai-router.js';
 import { opsRoutes, notifyFailedPosts } from './ops.js';
 import { founderRoutes, runFounderBriefs } from './founder.js';
+import { brandStoreRoutes } from './brand-store.js';
 import { brandScope, teamRoutes } from './team.js';
 import { plannerRoutes, syncContentWithPost, unlinkPost } from './planner.js';
 import { analyticsRoutes, syncIfStale } from './analytics.js';
@@ -177,6 +178,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   inboxRoutes(app, db, scope, { storage, ownerUsername: username });
   reportRoutes(app, db, scope, { ownerUsername: username });
   founderRoutes(app, db, scope, { ownerUsername: username });
+  brandStoreRoutes(app, db, scope);
 
   // ---- Akun ----
   const publicAccount = (a) => {

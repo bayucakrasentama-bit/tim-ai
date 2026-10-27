@@ -5,8 +5,8 @@
 //                 + kalkulator tanpa AI (rencana scaling budget & vonis SCALE/HOLD/OPTIMIZE/KILL).
 // - Tim CS      → CS AI Closing ada di cs-closer.js (Kantor AI membaca datanya lewat window.timCs).
 // - Tim Founder → Kantor AI: Conductor (perintah bahasa biasa → agen/kartu), Laporan Pagi (ke WA/Telegram), Struktur Tim.
-// Semua AI lewat /api/ai/chat (model yang dipilih di AI & API Keys). Data yang belum punya endpoint backend
-// (pengaturan CS AI, order AI, riwayat agen, jadwal) disimpan per brand di browser ini, sama seperti divisions.js.
+// Semua AI lewat /api/ai/chat (model yang dipilih di AI & API Keys). Riwayat & aktivitas agen, kalkulator, jadwal,
+// dan omzet riil disimpan per brand di server lewat store.js.
 const S = window.siarin;
 const { api, esc, toast, openModal, closeModal, state } = S;
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -20,10 +20,10 @@ const pct = (v) => (v == null || !Number.isFinite(v) ? '–' : `${(v * 100).toLo
 const since = (days) => new Date(Date.now() - days * 86400_000).toISOString();
 const brand = () => state.brands.find((b) => b.id === state.brandId);
 const copy = (t, msg = 'Disalin') => navigator.clipboard?.writeText(t).then(() => toast(msg)).catch(() => toast('Gagal menyalin'));
+// Data bersama per brand ada di server (store.js → kunci "agents.*"), jadi riwayat, aktivitas, dan isian Kantor AI sama di semua laptop.
 const store = {
-  key: (k) => `timai.agents.${state.brandId || 0}.${k}`,
-  get(k, d) { try { return JSON.parse(localStorage.getItem(this.key(k))) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(this.key(k), JSON.stringify(v)); } catch { /* mode privat */ } },
+  get: (k, d) => window.timStore.get(`agents.${k}`, d),
+  set: (k, v) => window.timStore.set(`agents.${k}`, v),
 };
 
 // ======================= AI =======================
@@ -204,7 +204,7 @@ async function runAgent(box, a, values) {
 const activity = () => store.get('activity', []);
 function logActivity(entry) {
   const e = { id: entry.id || Date.now(), at: entry.at || Date.now(), ...entry };
-  store.set('activity', [e, ...activity().filter((x) => x.id !== e.id)].slice(0, 60));
+  window.timStore.push('agents.activity', e, 60);
   if (document.getElementById('view-founder')?.classList.contains('active') && fo.tab === 'office') renderFounder();
   return e;
 }
@@ -580,7 +580,7 @@ function foOffice(body) {
         <div class="label">Aktivitas</div>${log.filter((e) => e.agent === sel.id).slice(0, 8).map((e) => `<div class="vo-log"><span class="tag v-${STATUS[e.status][1]}">${STATUS[e.status][0]}</span> ${esc(e.title || '—')} <span class="hint">${ago(e.end || e.at)}${e.error ? ` · ${esc(e.error)}` : ''}</span></div>`).join('') || '<p class="hint">Belum ada aktivitas tercatat.</p>'}
         <div class="btn-row"><button class="primary" data-fo-agent="${sel.id}">Beri tugas →</button></div>`
       : `<div class="label">Log aktivitas terbaru</div>${log.slice(0, 12).map((e) => `<div class="vo-log"><span class="tag v-${STATUS[e.status][1]}">${STATUS[e.status][0]}</span> <b>${esc(byId[e.agent]?.name || e.agent)}</b> ${esc(e.title || '')} <span class="hint">${ago(e.end || e.at)}</span></div>`).join('') || '<p class="hint">Klik meja agen untuk melihat tugas, tools, dan aktivitasnya. Aktivitas muncul setelah agen dijalankan.</p>'}
-        <p class="hint">Status mengikuti aktivitas yang tercatat di browser ini.</p>`}</div></div>`;
+        <p class="hint">Status mengikuti aktivitas yang tercatat untuk brand ini.</p>`}</div></div>`;
 }
 
 function foOrg(body) {
@@ -639,14 +639,15 @@ function bindFounder() {
 
 // ======================= PASANG =======================
 const { viewHooks } = S;
-viewHooks.brandlab = renderBrandLab;
-viewHooks['agents-digital'] = renderDigital;
-viewHooks['agents-adv'] = renderAdv;
-viewHooks.founder = renderFounder;
+const { withStore } = window.timStore;
+viewHooks.brandlab = withStore(renderBrandLab);
+viewHooks['agents-digital'] = withStore(renderDigital);
+viewHooks['agents-adv'] = withStore(renderAdv);
+viewHooks.founder = withStore(renderFounder);
 bindAgents('brandlab', renderBrandLab);
 bindAgents('agents-digital', renderDigital);
 bindAgents('agents-adv', renderAdv);
 bindFounder();
 // Data per brand (CS AI, riwayat agen) ikut berganti sendiri: switchBrand memanggil show() → viewHooks di atas.
 
-window.timAgents = { AGENTS, openAgent };
+window.timAgents = { AGENTS, openAgent, verdict };

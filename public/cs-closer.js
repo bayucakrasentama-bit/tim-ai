@@ -3,7 +3,7 @@
 // - Ongkir per ekspedisi & zona (hitung otomatis dari alamat + berat), promo terstruktur (diskon %, potongan, bundling, gratis ongkir).
 // - Simulator chat sampai closing → order direkap, total dihitung ulang dari harga/promo/ongkir (koreksi kalau AI salah hitung).
 // - Data Order AI + struk (receipt) WhatsApp, follow-up otomatis, broadcast WhatsApp, export CSV, prompt siap pasang di Inbox.
-// Pengaturan & order disimpan per brand di browser ini (belum ada endpoint backend), sama seperti divisions.js.
+// Pengaturan, order, dan broadcast disimpan per brand di server (store.js), jadi sama di semua laptop.
 const S = window.siarin;
 const { api, esc, toast, openModal, closeModal, state } = S;
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -15,10 +15,18 @@ const rp = (n) => (n == null || !Number.isFinite(n) ? '–' : `Rp${Math.round(n)
 const pct = (v) => (v == null || !Number.isFinite(v) ? '–' : `${(v * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`);
 const brand = () => state.brands.find((b) => b.id === state.brandId);
 const copy = (t, msg = 'Disalin') => navigator.clipboard?.writeText(t).then(() => toast(msg)).catch(() => toast('Gagal menyalin'));
+// Data bersama per brand ada di server (store.js → kunci "cs.*"). Simulator chat & tanda terkirim broadcast tetap per browser.
+const LOCAL_ONLY = /^(sim\.|bc\.sent$)/;
 const store = {
   key: (k) => `timai.cs.${state.brandId || 0}.${k}`,
-  get(k, d) { try { return JSON.parse(localStorage.getItem(this.key(k))) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(this.key(k), JSON.stringify(v)); } catch { /* mode privat */ } },
+  get(k, d) {
+    if (!LOCAL_ONLY.test(k)) return window.timStore.get(`cs.${k}`, d);
+    try { return JSON.parse(localStorage.getItem(this.key(k))) ?? d; } catch { return d; }
+  },
+  set(k, v) {
+    if (!LOCAL_ONLY.test(k)) return window.timStore.set(`cs.${k}`, v);
+    try { localStorage.setItem(this.key(k), JSON.stringify(v)); } catch { /* mode privat */ }
+  },
 };
 const waPhone = (p) => String(p || '').replace(/\D/g, '').replace(/^0/, '62');
 const waLink = (phone, text) => `https://wa.me/${waPhone(phone)}?text=${encodeURIComponent(text)}`;
@@ -311,7 +319,7 @@ async function send(text) {
     const entry = { role: 'assistant', content: reply.replace(/^CS:\s*/i, '') };
     if (raw) {
       const o = { id: Date.now(), at: new Date().toISOString(), status: 'baru', source: 'simulator', agent: a.agent, ...settle(raw, a) };
-      store.set('orders', [o, ...orders()]);
+      window.timStore.push('cs.orders', o);
       entry.order = invNo(o);
       toast(o.corrected ? `Closing! Total dikoreksi ke ${rp(o.total)} (AI: ${rp(o.ai_total)})` : 'Closing! Order masuk ke Data Order AI');
     }
@@ -348,7 +356,7 @@ function tabOrders(body) {
       <td>${esc(o.courier || '–')} · ${rp(N(o.shipping) - N(o.shippingCut))}<div class="hint">${esc(o.payment || '')} · ${esc(o.address || '')}</div></td>
       <td><select data-cs-ost="${o.id}">${Object.entries(OSTATUS).map(([k, l]) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
       <td class="nowrap"><button class="link" data-cs-receipt="${o.id}">Struk</button> · <button class="link" data-cs-fu="${o.id}">Follow-up</button> · <button class="link" data-cs-delo="${o.id}">Hapus</button></td></tr>`).join('') || '<tr><td colspan="7" class="hint">Belum ada order. Uji simulator sampai pelanggan bilang "setuju" — order tersimpan otomatis dan totalnya dihitung ulang sistem.</td></tr>'}
-    </tbody></table></div><p class="hint">Disimpan per brand di browser ini. Export CSV untuk diimpor ke aggregator ekspedisi / spreadsheet.</p></div>`;
+    </tbody></table></div><p class="hint">Tersimpan di server untuk brand ini, sama di semua laptop. Export CSV untuk diimpor ke aggregator ekspedisi / spreadsheet.</p></div>`;
 }
 function receiptModal(o) {
   const text = receipt(o);
@@ -385,7 +393,7 @@ function addOrderModal() {
     const f = Object.fromEntries(new FormData(e.target));
     const o = { id: Date.now(), at: new Date().toISOString(), status: 'baru', source: 'manual', agent: 'manual',
       ...settle({ customer: f.customer, phone: f.phone, items: [{ name: f.item, qty: N(f.qty) || 1 }], payment: f.payment, address: f.address }, a) };
-    store.set('orders', [o, ...orders()]);
+    window.timStore.push('cs.orders', o).then(render);
     closeModal();
     render();
   };
@@ -518,7 +526,7 @@ root.addEventListener('click', (e) => {
   if (d.csReset !== undefined) { store.set(`sim.${cs.agentId}`, []); render(); }
   if (d.csCsv !== undefined) exportCsv();
   if (d.csAddo !== undefined) addOrderModal();
-  if (d.csDelo) { store.set('orders', orders().filter((o) => String(o.id) !== d.csDelo)); render(); }
+  if (d.csDelo) { window.timStore.remove('cs.orders', d.csDelo); render(); }
   if (d.csReceipt) receiptModal(orders().find((o) => String(o.id) === d.csReceipt));
   if (d.csFu) { const o = orders().find((x) => String(x.id) === d.csFu); cs.tab = 'followup'; render(); tabFollowup($('[data-cs-body]', root), o); }
   if (d.csFugo !== undefined) followupRun(body);
@@ -538,7 +546,7 @@ function readShip(form) {
 root.addEventListener('change', (e) => {
   const t = e.target;
   if (t.matches('[data-cs-agent]')) { cs.agentId = Number(t.value); render(); }
-  if (t.dataset.csOst) store.set('orders', orders().map((o) => (String(o.id) === t.dataset.csOst ? { ...o, status: t.value } : o)));
+  if (t.dataset.csOst) window.timStore.patch('cs.orders', t.dataset.csOst, { status: t.value });
   if (t.closest('[data-cs-bcform]') && t.name !== 'goal') { readBc(root); render(); }
 });
 root.addEventListener('submit', (e) => {
@@ -563,6 +571,6 @@ root.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && e.target.closest('[data-cs-send]')) { e.preventDefault(); e.target.closest('form').requestSubmit(); }
 });
 
-S.viewHooks.closer = render;
+S.viewHooks.closer = window.timStore.withStore(render);
 // Dipakai Kantor AI (agents.js): ringkasan order & nama agent untuk Laporan Pagi dan Struktur Tim.
 window.timCs = { orders, agents, systemPrompt, pricing, ongkirOptions };

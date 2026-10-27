@@ -14,7 +14,7 @@ const ON = store.get('timai.focus', true) !== false;
 
 // Menu kerja: [kunci, label sidebar, [view, label tab hub]...]. View pertama = tombol sidebar (badge-nya ikut tampil).
 const HUBS = [
-  ['beranda', 'Beranda', [['dashboard', 'Beranda']]],
+  ['beranda', 'Beranda', [['today', 'Hari Ini'], ['dashboard', 'Ringkasan']]],
   ['konten', 'Konten', [['planner', 'Planner'], ['calendar', 'Kalender'], ['compose', 'Buat Post'], ['studio', 'Studio Visual']]],
   ['iklan', 'Iklan', [['adv', 'Iklan Meta & TikTok'], ['mp', 'Iklan Marketplace'], ['agents-adv', 'Agen & Kalkulator']]],
   ['cs', 'CS', [['inbox', 'Inbox'], ['closer', 'CS AI'], ['cs', 'Tiket & Template']]],
