@@ -60,6 +60,7 @@ body { font-family: var(--font-ui); background: var(--bg); }
 button.primary, a.btn.primary { background: var(--grad); border: 0; box-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 8px 20px -10px #6366f1; }
 button.primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
 .logo { background: var(--grad); box-shadow: 0 6px 16px -6px #6366f1; }
+.logo-img { background: none; box-shadow: 0 6px 16px -6px rgba(229, 9, 20, .6); }
 button.ghost:hover, a.btn:hover, label.btn:hover { background: var(--hover); }
 .card, .kpi { transition: border-color var(--t), box-shadow var(--t), transform var(--t); }
 .card:hover { border-color: var(--line-strong); }

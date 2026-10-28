@@ -742,7 +742,7 @@ table.data td { border-bottom-color: var(--line); }
 @media (max-width: 820px) { .ai-set-grid { grid-template-columns: 1fr; } }
 
 /* ---- TIM-AI: logo, Master BCS, Tim ADV/MP, LP Builder, Integrasi Cepat ---- */
-.logo-img { padding: 0; background: none; box-shadow: 0 4px 12px -4px rgba(91, 75, 219, .6); object-fit: contain; }
+.logo-img { padding: 0; background: none; box-shadow: 0 4px 12px -4px rgba(229, 9, 20, .55); object-fit: contain; }
 .mobilebar .logo-img { width: 26px; height: 26px; }
 .login .brand .logo-img { width: 36px; height: 36px; }
 .mbcs { margin-top: 18px; border-color: var(--accent); }
