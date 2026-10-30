@@ -75,11 +75,11 @@ kol: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/><path d="M18
 affiliate: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
 aikeys: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
 integrations: '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v5"/>',
-brandlab: '<circle cx="12" cy="12" r="9"/><circle cx="8" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/><path d="M12 21c1.5 0 2-1 2-2s-1-1.5-1-2.5 1-1.5 2-1.5h2a4 4 0 0 0 4-4"/>',
 'agents-digital': '<path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6M9 11h4"/>',
 'agents-adv': '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6"/>',
 closer: '<path d="M4 4h16v12H8l-4 4z"/><path d="M8.5 10l2 2 4-4"/>',
 founder: '<path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6M9 11h.01M15 11h.01"/>',
+freetools: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
 team: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14a5 5 0 0 1 5 5"/>',
 };
 document.querySelectorAll('#nav [data-view]').forEach((b) => {
@@ -833,6 +833,16 @@ window.siarin = {
   viewHooks, composeFrom, loadMe, switchBrand, renderBrandSwitch, toLocalInput, STATUS_LABEL, TEAM_LABEL, setNavBadge,
 };
 
+function showWaiting() {
+  document.querySelector('.app-shell').innerHTML = `<main><div class="card login" style="max-width:420px;margin:12vh auto;text-align:center">
+    <div class="brand" style="justify-content:center"><img class="logo logo-img" src="/logo.svg" alt=""> TIM-AI</div>
+    <h2>Akun kamu sudah terdaftar 🎉</h2>
+    <p>Halo <b>${esc(state.me.user.username)}</b>${state.me.user.email ? ` (${esc(state.me.user.email)})` : ''}. Tinggal tunggu admin memberi akses brand di menu Tim, lalu muat ulang halaman ini.</p>
+    <div class="btn-row" style="justify-content:center"><button class="primary" id="wait-reload">Muat ulang</button><button class="ghost" id="wait-logout">Keluar</button></div></div></main>`;
+  $('#wait-reload').addEventListener('click', () => location.reload());
+  $('#wait-logout').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/login.html'; });
+}
+
 // ---------- Mulai ----------
 (async () => {
   state.config = await api('/api/config');
@@ -844,6 +854,8 @@ window.siarin = {
     });
   }
   await loadMe();
+  // Baru daftar lewat Google dan belum diberi brand: tampilkan layar tunggu, bukan menu yang semuanya error.
+  if (!state.brands.length && !['owner', 'admin'].includes(state.me.user.role)) return showWaiting();
   const platforms = await api('/api/platforms');
   state.platforms = Object.fromEntries(platforms.map((p) => [p.id, p]));
   $('#acc-platform').innerHTML = platforms.map((p) => `<option value="${p.id}">${esc(p.label)}</option>`).join('');

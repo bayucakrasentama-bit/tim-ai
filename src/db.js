@@ -512,7 +512,7 @@ const ADDED_COLUMNS = [
   ['posts', 'media_url'], ['posts', 'started_at'],
   ['accounts', 'brand_id', 'INTEGER'], ['posts', 'brand_id', 'INTEGER'],
   ['posts', 'content_id', 'INTEGER'], ['posts', 'created_by', 'TEXT'],
-  ['users', 'team', 'TEXT'], ['posts', 'asset_id', 'INTEGER'],
+  ['users', 'team', 'TEXT'], ['users', 'email', 'TEXT'], ['posts', 'asset_id', 'INTEGER'],
   ['metrics', 'external_id', 'TEXT'],
 ['partners', 'stats'], ['partners', 'stats_at'],
 ['partner_posts', 'tracked', 'INTEGER'], ['partner_posts', 'refreshed_at'], ['partner_posts', 'thumbnail'], ['partner_posts', 'duration', 'INTEGER'],

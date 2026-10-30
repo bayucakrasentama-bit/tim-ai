@@ -1,6 +1,7 @@
 // Login:
 // - Pemilik: APP_USERNAME (default "admin") + APP_PASSWORD dari environment. Selalu bisa masuk.
 // - Anggota tim: dibuat pemilik/admin dari menu Tim, password di-hash (scrypt) di database.
+// - Masuk dengan Google (google-login.js): email Google dicocokkan ke email anggota / email pemilik.
 // Cookie berisi id user + tanda tangan HMAC. Ganti password = sesi lama otomatis keluar.
 // Tanpa APP_PASSWORD (jalan lokal) login dimatikan dan semua request dianggap pemilik.
 import crypto from 'node:crypto';
@@ -36,6 +37,9 @@ export async function hashPassword(password) {
   return `scrypt$${salt}$${hash}`;
 }
 
+// Anggota yang cuma masuk lewat Google: hash ini tidak pernah cocok dengan password apa pun.
+export const googleOnlyHash = () => `google$${crypto.randomBytes(16).toString('hex')}`;
+
 async function verifyPassword(password, stored) {
   const [, salt, hash] = String(stored).split('$');
   if (!salt || !hash) return false;
@@ -62,9 +66,16 @@ export function createAuth(db, login) {
     if (!m) return null;
     const [, id, sig] = m;
     if (id === '0') return safeEqual(sig, sign(login, 0, '')) ? owner : null;
-    const user = await db.get('SELECT id, username, role, team, password_hash FROM users WHERE id = ?', Number(id));
+    const user = await db.get('SELECT id, username, role, team, email, password_hash FROM users WHERE id = ?', Number(id));
     if (!user || !safeEqual(sig, sign(login, user.id, user.password_hash))) return null;
-    return { id: user.id, username: user.username, role: user.role, team: TEAMS.includes(user.team) ? user.team : 'semua' };
+    return { id: user.id, username: user.username, role: user.role, team: TEAMS.includes(user.team) ? user.team : 'semua', email: user.email || '' };
+  }
+
+  // Pasang cookie sesi untuk pemilik (user = null) atau baris tabel users. Dipakai login password & login Google.
+  function startSession(req, res, user = null) {
+    const cookie = user ? `${user.id}.${sign(login, user.id, user.password_hash)}` : `0.${sign(login, 0, '')}`;
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+    res.setHeader('Set-Cookie', `${COOKIE}=${cookie}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE}${secure}`);
   }
 
   function routes(app) {
@@ -72,22 +83,24 @@ export function createAuth(db, login) {
       if (!enabled) return res.json({ ok: true });
       const username = String(req.body?.username ?? '').trim().toLowerCase();
       const password = String(req.body?.password ?? '');
-      let cookie = null;
+      let ok = false;
       // Pemilik: username & password selalu dibandingkan dua-duanya supaya waktunya sama.
       const ownerUser = safeEqual(username, login.username.toLowerCase());
       const ownerPass = safeEqual(password, login.password);
       if (ownerUser && ownerPass) {
-        cookie = `0.${sign(login, 0, '')}`;
+        startSession(req, res);
+        ok = true;
       } else if (!ownerUser) {
         const user = await db.get('SELECT * FROM users WHERE LOWER(username) = ?', username);
-        if (user && (await verifyPassword(password, user.password_hash))) cookie = `${user.id}.${sign(login, user.id, user.password_hash)}`;
+        if (user && (await verifyPassword(password, user.password_hash))) {
+          startSession(req, res, user);
+          ok = true;
+        }
       }
-      if (!cookie) {
+      if (!ok) {
         await new Promise((r) => setTimeout(r, 600)); // memperlambat tebak-tebakan password
         return res.status(401).json({ error: 'Username atau password salah' });
       }
-      const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
-      res.setHeader('Set-Cookie', `${COOKIE}=${cookie}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE}${secure}`);
       res.json({ ok: true });
     });
     app.post('/api/logout', (_req, res) => {
@@ -96,7 +109,7 @@ export function createAuth(db, login) {
     });
   }
 
-  return { enabled, currentUser, routes, owner };
+  return { enabled, currentUser, routes, owner, startSession };
 }
 
 // Pemilik & admin bisa kelola tim dan semua brand; member cuma brand yang ditugaskan.

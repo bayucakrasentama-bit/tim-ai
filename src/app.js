@@ -28,6 +28,8 @@ import { oauthRoutes } from './oauth.js';
 import { guides } from './guides.js';
 import { adsRoutes, syncStaleAds } from './ads.js';
 import { growthRoutes } from './growth.js';
+import { freeToolRoutes } from './free-tools.js';
+import { googleLoginRoutes, googleLoginSettingsRoutes } from './google-login.js';
 import { partnerRoutes } from './partners.js';
 import { partnerToolRoutes, refreshTrackedPosts } from './partner-tools.js';
 import { lpRoutes, lpPublicRoute } from './lp-builder.js';
@@ -48,6 +50,8 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   app.set('trust proxy', true); // supaya https & host asli terbaca di belakang proxy Vercel
   // Screenshot untuk AI dikirim sebagai base64 (sudah diperkecil di browser); batas body Vercel 4,5 MB.
   app.use('/api/ai/extract', express.json({ limit: '4mb' }));
+  // Template LP dari referensi bisa membawa gambar tertanam (base64), jadi body-nya besar.
+  app.use('/api/lp-pages', express.json({ limit: '4mb' }));
   // Webhook chat butuh body mentah untuk verifikasi tanda tangan platform.
   app.use('/api/chat/webhook', express.raw({ type: '*/*', limit: '2mb' }), (req, _res, next) => {
     req.rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
@@ -65,6 +69,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
 
   const auth = createAuth(db, login);
   auth.routes(app);
+  googleLoginRoutes(app, db, auth);
 
   // Landing page Launch Lab yang sudah dipublikasikan (publik, tanpa login).
   landingPublicRoute(app, db);
@@ -171,6 +176,8 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   launchRoutes(app, db, scope);
   adsRoutes(app, db);
   growthRoutes(app, db, scope);
+  freeToolRoutes(app);
+  googleLoginSettingsRoutes(app, db);
   partnerToolRoutes(app, db);
   partnerRoutes(app, db);
   lpRoutes(app, db, scope);

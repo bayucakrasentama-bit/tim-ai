@@ -2,7 +2,8 @@
 // Setiap request ke data (akun, post, planner, analitik) berlaku untuk satu brand:
 // dipilih lewat header X-Brand-Id, kalau kosong pakai brand pertama yang boleh diakses.
 import { now } from './db.js';
-import { canManage, hashPassword, TEAMS } from './auth.js';
+import { canManage, googleOnlyHash, hashPassword, TEAMS } from './auth.js';
+import { ownerEmail, validEmail } from './google-login.js';
 
 // lead = Lead/Supervisor: lintas divisi & berhak Approve / Request Revision kartu Planner (tidak kelola tim).
 const ROLES = ['admin', 'lead', 'member'];
@@ -36,7 +37,9 @@ const manageOnly = (req, res, next) => (canManage(req.user) ? next() : res.statu
 
 export function teamRoutes(app, db, { ownerUsername, authEnabled, scope }) {
   app.get('/api/me', async (req, res) => {
-    res.json({ user: req.user, brands: await brandsFor(db, req.user), authEnabled });
+    // email: akun Google user ini, dipakai tombol Gemini (?authuser=) supaya terbuka di akun yang benar.
+    const email = req.user.id === 0 ? await ownerEmail(db) : req.user.email || '';
+    res.json({ user: { ...req.user, email }, brands: await brandsFor(db, req.user), authEnabled });
   });
 
   // ---- Brand ----
@@ -86,6 +89,7 @@ export function teamRoutes(app, db, { ownerUsername, authEnabled, scope }) {
   const publicUser = async (u) => ({
     id: u.id,
     username: u.username,
+    email: u.email || '',
     role: u.role,
     team: TEAMS.includes(u.team) ? u.team : 'semua',
     created_at: u.created_at,
@@ -113,11 +117,16 @@ export function teamRoutes(app, db, { ownerUsername, authEnabled, scope }) {
     const team = TEAMS.includes(req.body?.team) ? req.body.team : 'semua';
     if (!/^[a-z0-9._-]{3,32}$/.test(username)) return res.status(400).json({ error: 'Username 3-32 karakter: huruf kecil, angka, titik, strip, atau garis bawah' });
     if (username === ownerUsername.toLowerCase()) return res.status(400).json({ error: 'Username ini dipakai pemilik' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password minimal 8 karakter' });
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (email && !validEmail(email)) return res.status(400).json({ error: 'Email Google tidak valid' });
+    // Boleh tanpa password kalau anggota login pakai Google.
+    if (!email && password.length < 8) return res.status(400).json({ error: 'Isi email Google, atau password minimal 8 karakter' });
+    if (password && password.length < 8) return res.status(400).json({ error: 'Password minimal 8 karakter' });
     if (await db.get('SELECT id FROM users WHERE username = ?', username)) return res.status(400).json({ error: 'Username sudah dipakai' });
+    if (email && (await db.get('SELECT id FROM users WHERE LOWER(email) = ?', email))) return res.status(400).json({ error: 'Email ini sudah dipakai anggota lain' });
     const [user] = await db.run(
-      'INSERT INTO users (username, password_hash, role, team, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *',
-      username, await hashPassword(password), role, team, now(),
+      'INSERT INTO users (username, password_hash, role, team, email, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *',
+      username, password ? await hashPassword(password) : googleOnlyHash(), role, team, email || null, now(),
     );
     await setBrands(user.id, req.body?.brandIds);
     res.status(201).json(await publicUser(user));
@@ -129,6 +138,12 @@ export function teamRoutes(app, db, { ownerUsername, authEnabled, scope }) {
     if (req.body?.password !== undefined && req.body.password !== '') {
       if (String(req.body.password).length < 8) return res.status(400).json({ error: 'Password minimal 8 karakter' });
       await db.run('UPDATE users SET password_hash = ? WHERE id = ?', await hashPassword(String(req.body.password)), user.id);
+    }
+    if (req.body?.email !== undefined) {
+      const email = String(req.body.email).trim().toLowerCase();
+      if (email && !validEmail(email)) return res.status(400).json({ error: 'Email Google tidak valid' });
+      if (email && (await db.get('SELECT id FROM users WHERE LOWER(email) = ? AND id <> ?', email, user.id))) return res.status(400).json({ error: 'Email ini sudah dipakai anggota lain' });
+      await db.run('UPDATE users SET email = ? WHERE id = ?', email || null, user.id);
     }
     if (ROLES.includes(req.body?.role)) await db.run('UPDATE users SET role = ? WHERE id = ?', req.body.role, user.id);
     if (TEAMS.includes(req.body?.team)) await db.run('UPDATE users SET team = ? WHERE id = ?', req.body.team, user.id);

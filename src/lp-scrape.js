@@ -94,14 +94,35 @@ function colorsAndFonts(css) {
 }
 const top = (m, n) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
 
-// HTML -> ringkasan yang hemat token: kerangka teks berurutan (# judul, - poin, [TOMBOL], [GAMBAR]), plus meta.
-export async function scrapePage(rawUrl) {
+async function fetchPage(rawUrl) {
   let input = String(rawUrl || '').trim();
   if (!input) throw new ScrapeError('Tempel link landing page referensinya dulu');
   if (!/^https?:\/\//i.test(input)) input = `https://${input}`;
   try { new URL(input); } catch { throw new ScrapeError('Link tidak valid'); }
   const page = await fetchText(input, { max: MAX_HTML, accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5' });
   if (page.type && !/html|xml|text\/plain/i.test(page.type)) throw new ScrapeError('Link ini bukan halaman web (mungkin file/gambar)');
+  return page;
+}
+
+// HTML utuh untuk "Template dari referensi" (desain dipertahankan). Semua link/aset relatif dijadikan absolut ke website
+// sumber supaya CSS, gambar, dan font tetap tampil saat dibuka di TIM-AI; link "#bagian" dibiarkan.
+export async function fetchPageHtml(rawUrl) {
+  const page = await fetchPage(rawUrl);
+  const base = abs(attr(/<base\b[^>]*>/i.exec(page.text)?.[0] || '', 'href'), page.url) || page.url;
+  const fix = (u) => (/^(#|data:|blob:|mailto:|tel:|javascript:|about:)/i.test(u.trim()) || !u.trim() ? u : abs(u.trim(), base) || u);
+  const html = page.text
+    .replace(/<base\b[^>]*>/gi, '')
+    .replace(/(\s(?:src|href|data-src|data-lazy-src|data-bg|poster|action)\s*=\s*)("([^"]*)"|'([^']*)')/gi, (m, pre, q, d, s) => `${pre}"${fix(d ?? s).replace(/"/g, '&quot;')}"`)
+    .replace(/(\s(?:srcset|data-srcset)\s*=\s*)("([^"]*)"|'([^']*)')/gi, (m, pre, q, d, s) => `${pre}"${(d ?? s).split(',').map((part) => { const [u, ...rest] = part.trim().split(/\s+/); return [fix(u), ...rest].join(' '); }).join(', ')}"`)
+    .replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (m, q, u) => `url(${q}${fix(u)}${q})`);
+  const words = clean(html.replace(/<(script|style|noscript|svg)\b[\s\S]*?<\/\1>/gi, ' ')).split(' ').filter(Boolean).length;
+  if (words < 40) throw new ScrapeError('Teks di halaman ini terlalu sedikit. Kemungkinan halamannya dirender pakai JavaScript, dikunci login, atau memblokir bot. Coba simpan halamannya dari browser (Ctrl+S) lalu pakai "Impor referensi HTML".', 422);
+  return { url: page.url, html };
+}
+
+// HTML -> ringkasan yang hemat token: kerangka teks berurutan (# judul, - poin, [TOMBOL], [GAMBAR]), plus meta.
+export async function scrapePage(rawUrl) {
+  const page = await fetchPage(rawUrl);
   const html = page.text;
   const base = abs(attr(/<base\b[^>]*>/i.exec(html)?.[0] || '', 'href'), page.url) || page.url;
   const head = /<head\b[\s\S]*?<\/head>/i.exec(html)?.[0] || '';

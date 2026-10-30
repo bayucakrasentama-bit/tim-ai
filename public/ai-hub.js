@@ -1,5 +1,5 @@
 // AI Hub: halaman "AI & API Keys" (BYOK + model default), Model Picker, dan tab AI Studio baru:
-// Playground, Arena (bandingkan 2–3 model), Gambar, Video, Suara. Studio Visual ikut dapat tab "Generate AI".
+// Playground, Arena (bandingkan 2–3 model), Gambar, Video, Suara. Prompt Builder di Studio mengirim prompt ke tab Gambar.
 const S = window.siarin;
 const { api, esc, toast, state } = S;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -181,17 +181,17 @@ const params = (root) => ({ system: $('#pg-system', root).value, temperature: Nu
 function resultCard(r) {
   if (!r.ok && r.error) return `<div class="card arena-col"><div class="label">${esc(r.provider)} · ${esc(r.model)}</div><div class="check bad">${esc(r.error)}</div></div>`;
   return `<div class="card arena-col"><div class="row-between"><div class="label">${esc(r.provider)} · <code>${esc(r.model)}</code></div>
-    <div class="btn-row"><button class="ghost small" data-copy-out>Salin</button><button class="ghost small" data-to-planner>→ Planner</button></div></div>
+    <div class="btn-row"><button class="ghost small" data-copy-out>Salin</button><button class="ghost small" data-to-planner>→ Planner</button>${S.gemini.button('text', { text: r.text, label: 'Lanjut di Gemini', cls: 'ghost small' })}</div></div>
     <div class="arena-meta mono">${(r.ms / 1000).toFixed(1)} dtk · in ${r.usage?.input ?? '?'} · out ${r.usage?.output ?? '?'} tok · ${usd(r.cost_usd)}</div>
     <div class="md arena-out" data-raw="${esc(r.text)}">${md(r.text)}</div></div>`;
 }
 
 async function tabPlayground(panel, output) {
   await loadPresets();
-  if (!configured('text').length) { panel.innerHTML = noKey('teks'); output.innerHTML = ''; return; }
+  if (!configured('text').length) { panel.innerHTML = noKey('teks') + `<div class="btn-row left">${S.gemini.button('text', { label: 'Buka Gemini', cls: 'primary' })}</div>`; output.innerHTML = ''; return; }
   panel.innerHTML = `<div class="label">Model</div>${pickerHtml('pg', 'text', hub.default || {})}${paramHtml()}
     <label class="label" for="pg-prompt">Prompt</label><textarea id="pg-prompt" rows="6" placeholder="mis. Tulis 10 hook TikTok untuk madu anak susah makan, gaya ibu-ibu relatable"></textarea>
-    <div class="row-between"><span class="hint mono" id="pg-est"></span><button class="primary ai" id="pg-run">✨ Jalankan</button></div>`;
+    <div class="row-between"><span class="hint mono" id="pg-est"></span><div class="btn-row">${S.gemini.button('text', { from: '#pg-prompt', label: 'Tanya di Gemini' })}<button class="primary ai" id="pg-run">✨ Jalankan</button></div></div>`;
   output.innerHTML = '';
   await bindPicker($('.mp', panel));
   bindParams(panel);
@@ -254,12 +254,25 @@ function jobCard(j) {
 let pollTimer = null;
 async function tabMedia(kind, panel, output) {
   const cap = kind;
-  if (!configured(cap).length) { panel.innerHTML = noKey(kind === 'video' ? 'video' : 'gambar'); output.innerHTML = ''; return; }
-  panel.innerHTML = `<div class="label">Model ${kind === 'video' ? 'video' : 'gambar'}</div>${pickerHtml(`md-${kind}`, cap)}
+  // Tanpa key fal/Replicate: tetap bisa bikin di Gemini (akun Google masing-masing).
+  const own = configured(cap).length > 0;
+  panel.innerHTML = `${own ? `<div class="label">Model ${kind === 'video' ? 'video' : 'gambar'}</div>${pickerHtml(`md-${kind}`, cap)}` : ''}
     <label class="label" for="md-prompt">Prompt</label><textarea id="md-prompt" rows="4" placeholder="${kind === 'video' ? 'mis. Close-up madu dituang ke sendok kayu, cahaya pagi hangat, slow motion, gaya iklan premium' : 'mis. Foto produk botol madu di meja kayu, cahaya natural, latar daun, gaya katalog premium'}"></textarea>
     <div class="form-grid"><div><label class="label" for="md-aspect">Rasio</label><select id="md-aspect"><option>1:1</option><option>9:16</option><option>16:9</option><option>4:5</option></select></div>
     ${kind === 'video' ? '<div><label class="label" for="md-dur">Durasi (detik)</label><select id="md-dur"><option>5</option><option>10</option></select></div><div class="span-2"><label class="label" for="md-img">Gambar awal (opsional, link https — image-to-video)</label><input id="md-img" placeholder="https://"></div>' : ''}</div>
-    <div class="row-between"><span class="hint">${kind === 'video' ? 'Video biasanya selesai 1–5 menit; halaman ini memantau otomatis.' : 'Hasil disimpan ke penyimpanan TIM-AI supaya link-nya tidak kedaluwarsa.'}</span><button class="primary ai" id="md-run">✨ Generate</button></div>`;
+    <div class="row-between"><span class="hint">${own ? (kind === 'video' ? 'Video biasanya selesai 1–5 menit; halaman ini memantau otomatis.' : 'Hasil disimpan ke penyimpanan TIM-AI supaya link-nya tidak kedaluwarsa.') : 'Prompt (plus rasio) disalin, lalu Gemini terbuka di akun Google-mu. Tinggal tempel.'}</span>
+      <div class="btn-row">${S.gemini.button(kind, { from: '#md-gemini-src', label: `Buat di ${S.gemini.label(kind)}`, cls: own ? 'ghost' : 'primary ai' })}${own ? '<button class="primary ai" id="md-run">✨ Generate</button>' : ''}</div></div>
+    <textarea id="md-gemini-src" hidden></textarea>`;
+  // Prompt untuk Gemini = prompt + rasio (+ durasi untuk video).
+  const syncGemini = () => {
+    const extra = [`Rasio ${$('#md-aspect', panel).value}`, $('#md-dur', panel) ? `durasi ${$('#md-dur', panel).value} detik` : ''].filter(Boolean).join(', ');
+    $('#md-gemini-src', panel).value = $('#md-prompt', panel).value.trim() ? `${$('#md-prompt', panel).value.trim()}\n\n${extra}.` : '';
+  };
+  panel.addEventListener('input', syncGemini);
+  panel.addEventListener('change', syncGemini);
+  // Prompt Builder Studio mengisi #md-prompt lewat kode (tanpa event input): sinkron lagi tepat sebelum klik.
+  panel.addEventListener('pointerdown', syncGemini, true);
+  if (!own) { output.innerHTML = '<p class="hint">Mau generate langsung di TIM-AI juga? Isi key fal.ai / Replicate di <button class="link" data-goto="aikeys">Pengaturan → AI & API Keys</button>.</p>'; return; }
   await bindPicker($('.mp', panel));
   const drawGallery = async () => {
     const jobs = (await api('/api/ai/jobs')).filter((j) => j.kind === kind);
@@ -295,14 +308,20 @@ async function tabMedia(kind, panel, output) {
 }
 
 async function tabVoice(panel, output) {
-  if (!configured('audio').length) { panel.innerHTML = noKey('suara'); output.innerHTML = ''; return; }
+  // Tanpa key ElevenLabs: naskah dibawa ke Google AI Studio (Generate speech) di akun Google masing-masing.
+  if (!configured('audio').length) {
+    panel.innerHTML = `<label class="label" for="tts-text">Naskah voice-over</label><textarea id="tts-text" rows="6" placeholder="Tempel naskah VO di sini."></textarea>
+      <div class="row-between"><span class="hint">Naskah disalin, lalu AI Studio terbuka di akun Google-mu. Tempel, pilih suara, Run.</span>${S.gemini.button('voice', { from: '#tts-text', label: '🎙 Buat suara di AI Studio', cls: 'primary ai' })}</div>`;
+    output.innerHTML = '';
+    return;
+  }
   panel.innerHTML = '<div class="spinner"></div>';
   let voices = [];
   try { voices = (await api('/api/ai/voices')).voices; } catch (ex) { panel.innerHTML = `<div class="check bad">${esc(ex.message)}</div>`; return; }
   panel.innerHTML = `<div class="form-grid"><div><label class="label" for="tts-voice">Suara</label><select id="tts-voice">${voices.map((v) => `<option value="${esc(v.id)}">${esc(v.name)}${v.labels?.accent ? ` · ${esc(v.labels.accent)}` : ''}${v.category === 'cloned' ? ' · clone' : ''}</option>`).join('')}</select></div>
     <div><label class="label" for="tts-model">Model</label><input id="tts-model" list="tts-models" value="eleven_multilingual_v2"><datalist id="tts-models">${(hub.media.elevenlabs?.audio || []).map((m) => `<option value="${m}">`).join('')}</datalist></div></div>
     <label class="label" for="tts-text">Naskah voice-over</label><textarea id="tts-text" rows="6" placeholder="Tempel naskah VO di sini (maks 5.000 karakter)."></textarea>
-    <div class="row-between"><span class="hint mono" id="tts-count">0 karakter</span><button class="primary ai" id="tts-run">🎙 Buat suara</button></div>`;
+    <div class="row-between"><span class="hint mono" id="tts-count">0 karakter</span><div class="btn-row">${S.gemini.button('voice', { from: '#tts-text', label: 'Buat di AI Studio' })}<button class="primary ai" id="tts-run">🎙 Buat suara</button></div></div>`;
   output.innerHTML = '';
   $('#tts-text', panel).addEventListener('input', (e) => { $('#tts-count', panel).textContent = `${e.target.value.length} karakter`; });
   $('#tts-run', panel).addEventListener('click', async () => {
@@ -333,30 +352,6 @@ function ensureAiTabs() {
   }, true);
 }
 
-// Studio Visual: tab "Generate AI" (gambar & video langsung di web).
-function ensureStudioTab() {
-  const tabs = $('#studio-tabs');
-  if (!tabs || tabs.querySelector('[data-studio=gen]')) return;
-  tabs.insertAdjacentHTML('beforeend', '<button data-studio="gen">✨ Generate AI</button>');
-  $('#studio-lp').insertAdjacentHTML('afterend', '<div id="studio-gen" hidden><div class="tabs" id="sg-kind"><button data-sg="image" class="active">Gambar</button><button data-sg="video">Video</button></div><div class="card" id="sg-panel"></div><div id="sg-output"></div></div>');
-  const open = async (kind) => {
-    document.querySelectorAll('#sg-kind button').forEach((b) => b.classList.toggle('active', b.dataset.sg === kind));
-    await loadHub();
-    await tabMedia(kind, $('#sg-panel'), $('#sg-output'));
-  };
-  tabs.addEventListener('click', (e) => {
-    const t = e.target.dataset.studio;
-    if (!t) return;
-    $('#studio-gen').hidden = t !== 'gen';
-    if (t === 'gen') {
-      document.querySelectorAll('#studio-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.studio === 'gen'));
-      $('#studio-tools').hidden = true;
-      $('#studio-lp').hidden = true;
-      open('image').catch((ex) => toast(ex.message));
-    }
-  });
-  $('#sg-kind').addEventListener('click', (e) => { if (e.target.dataset.sg) open(e.target.dataset.sg).catch((ex) => toast(ex.message)); });
-}
 
 // Aksi umum di hasil AI.
 document.addEventListener('click', async (e) => {
@@ -379,7 +374,4 @@ bindKeysPage();
 S.viewHooks.aikeys = () => drawKeys().catch((ex) => toast(ex.message));
 const prevAi = S.viewHooks.ai;
 S.viewHooks.ai = () => { ensureAiTabs(); prevAi?.(); };
-const prevStudio = S.viewHooks.studio;
-S.viewHooks.studio = () => { ensureStudioTab(); prevStudio?.(); };
-ensureStudioTab();
 window.timHub = { loadHub, pickerHtml, bindPicker, pickerValue };
