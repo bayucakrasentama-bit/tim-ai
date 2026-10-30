@@ -87,13 +87,14 @@ async function drawGoogleLogin() {
         <li>Salin Client ID ke bawah, lalu Simpan. Client secret tidak diperlukan.</li>
       </ol></details>
     <form id="gl-form" class="form-grid">
+      <label class="span-2 toggle"><input type="checkbox" id="gl-signup" ${c.allow_signup ? 'checked' : ''}> Izinkan <b>Daftar dengan Google</b> (akun baru menunggu admin memberi akses brand)</label>
       <div class="span-2"><label class="label" for="gl-owner">Email Google pemilik</label><input id="gl-owner" type="email" value="${esc(c.owner_email)}" placeholder="nama@gmail.com"></div>
       <div class="span-2"><label class="label" for="gl-id">Client ID</label><input id="gl-id" value="${esc(c.client_id)}" ${c.from_env ? 'disabled' : ''} placeholder="xxxx.apps.googleusercontent.com" autocomplete="off"></div>
       <div class="span-2 btn-row"><button class="primary" type="submit">Simpan</button></div>
     </form>`;
   box.querySelector('#gl-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const body = { owner_email: box.querySelector('#gl-owner').value };
+    const body = { owner_email: box.querySelector('#gl-owner').value, allow_signup: box.querySelector('#gl-signup').checked };
     if (!c.from_env) body.client_id = box.querySelector('#gl-id').value;
     try {
       await api('/api/google-login', json('PUT', body));

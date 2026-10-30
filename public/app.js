@@ -833,6 +833,16 @@ window.siarin = {
   viewHooks, composeFrom, loadMe, switchBrand, renderBrandSwitch, toLocalInput, STATUS_LABEL, TEAM_LABEL, setNavBadge,
 };
 
+function showWaiting() {
+  document.querySelector('.app-shell').innerHTML = `<main><div class="card login" style="max-width:420px;margin:12vh auto;text-align:center">
+    <div class="brand" style="justify-content:center"><img class="logo logo-img" src="/logo.svg" alt=""> TIM-AI</div>
+    <h2>Akun kamu sudah terdaftar 🎉</h2>
+    <p>Halo <b>${esc(state.me.user.username)}</b>${state.me.user.email ? ` (${esc(state.me.user.email)})` : ''}. Tinggal tunggu admin memberi akses brand di menu Tim, lalu muat ulang halaman ini.</p>
+    <div class="btn-row" style="justify-content:center"><button class="primary" id="wait-reload">Muat ulang</button><button class="ghost" id="wait-logout">Keluar</button></div></div></main>`;
+  $('#wait-reload').addEventListener('click', () => location.reload());
+  $('#wait-logout').addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/login.html'; });
+}
+
 // ---------- Mulai ----------
 (async () => {
   state.config = await api('/api/config');
@@ -844,6 +854,8 @@ window.siarin = {
     });
   }
   await loadMe();
+  // Baru daftar lewat Google dan belum diberi brand: tampilkan layar tunggu, bukan menu yang semuanya error.
+  if (!state.brands.length && !['owner', 'admin'].includes(state.me.user.role)) return showWaiting();
   const platforms = await api('/api/platforms');
   state.platforms = Object.fromEntries(platforms.map((p) => [p.id, p]));
   $('#acc-platform').innerHTML = platforms.map((p) => `<option value="${p.id}">${esc(p.label)}</option>`).join('');

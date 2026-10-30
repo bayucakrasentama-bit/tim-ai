@@ -1002,7 +1002,7 @@ async function renderTeam() {
   $('#user-list').innerHTML = `<div class="acc-row"><span class="avatar">★</span><div class="grow"><div class="acc-name">${esc(state.me.user.role === 'owner' ? state.me.user.username : 'Pemilik')}</div><div class="hint">Pemilik · semua brand · login dari APP_USERNAME/APP_PASSWORD${state.me.user.role === 'owner' && state.me.user.email ? ` atau Google (${esc(state.me.user.email)})` : ''}</div></div></div>
     ${users.map((u) => `<div class="acc-row"><span class="avatar">${esc(u.username[0].toUpperCase())}</span>
       <div class="grow"><div class="acc-name">${esc(u.username)}${u.email ? ` <span class="hint">· ${esc(u.email)}</span>` : ''}</div>
-        <div class="hint">${esc(S.TEAM_LABEL[u.team] || '')} · ${u.role === 'admin' ? 'Admin · semua brand' : `Anggota · ${u.brandIds.map(brandName).filter(Boolean).map(esc).join(', ') || 'belum ada brand'}`}</div></div>
+        <div class="hint">${esc(S.TEAM_LABEL[u.team] || '')} · ${u.role === 'admin' ? 'Admin · semua brand' : `Anggota · ${u.brandIds.map(brandName).filter(Boolean).map(esc).join(', ') || '<b class="warn-text">menunggu akses brand</b>'}`}</div></div>
       <button class="ghost small" data-edit-user="${u.id}">Edit</button>
       <button class="danger small" data-del-user="${u.id}">Hapus</button></div>`).join('') || ''}
     ${users.length ? '' : '<p class="hint">Belum ada anggota. Klik <b>+ Anggota</b> buat ngundang tim, terus kasih username & password-nya ke mereka.</p>'}`;
