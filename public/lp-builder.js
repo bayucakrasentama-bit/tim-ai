@@ -1,7 +1,7 @@
 // LP Builder (tab di Studio Visual): landing page dari blok-blok section.
 // - Pratinjau langsung (desktop/HP) dan bisa diedit langsung dengan klik teks di pratinjau.
 // - Hasil: HTML utuh (satu file, siap upload ke hosting mana pun) dan JSON (bisa diimpor lagi / diedit tim lain).
-// - Bisa diisi AI dari brief, diimpor dari Launch Lab, dan diterbitkan di /p/<alamat>.
+// - Bisa diisi AI dari brief, di-scrap dari link LP referensi, diimpor dari Launch Lab, dan diterbitkan di /p/<alamat>.
 const S = window.siarin;
 const { api, esc, toast, openModal, closeModal, state } = S;
 const $ = (sel) => document.querySelector(sel);
@@ -191,6 +191,7 @@ function drawShell() {
     <button class="primary small" id="lpb-save">Simpan</button>
     <span class="lpb-sep"></span>
     <button class="ghost small" id="lpb-ai">✨ Isi dengan AI</button>
+    <button class="ghost small" id="lpb-scrape">🔗 Scrap dari link</button>
     <button class="ghost small" id="lpb-launch">Ambil dari Launch Lab</button>
     <label class="btn small">Impor JSON/HTML<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label>
     <span class="lpb-sep"></span>
@@ -257,6 +258,46 @@ function aiModal() {
       toast(ex.message);
       $('#lai-go').disabled = false;
       $('#lai-go').textContent = 'Coba lagi';
+    }
+  });
+}
+
+function scrapeModal() {
+  openModal(`<form id="lpb-sc-form"><h3>🔗 Scrap landing page dari link</h3>
+    <label class="label" for="lsc-url">Link landing page referensi</label>
+    <input id="lsc-url" type="url" required placeholder="https://contoh.com/promo" autocomplete="off">
+    <label class="label">Cara pakai isinya</label>
+    <label class="toggle"><input type="radio" name="lsc-mode" value="rewrite" checked> Tiru struktur &amp; gayanya, tulis ulang untuk brand saya</label>
+    <label class="toggle"><input type="radio" name="lsc-mode" value="keep"> Ambil teks aslinya apa adanya (mis. pindahin LP sendiri)</label>
+    <div id="lsc-brief-wrap"><label class="label" for="lsc-brief">Brief produk saya (opsional)</label>
+      <textarea id="lsc-brief" rows="4" placeholder="Produk apa, untuk siapa, harga & promo, keunggulan. Kosongkan = pakai profil brand."></textarea></div>
+    <label class="label" for="lsc-cta">Link tombol (WA/checkout, opsional)</label><input id="lsc-cta" placeholder="https://wa.me/62...">
+    <label class="toggle"><input type="checkbox" id="lsc-img" checked> Pakai gambar dari halaman asli (link ke website sumber)</label>
+    <p class="hint">Isi halaman ini akan diganti hasil scrap. Halaman yang dirender JavaScript atau dikunci login kadang tidak terbaca. Pastikan kamu berhak memakai teks &amp; gambar halaman sumber.</p>
+    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary" id="lsc-go">Scrap</button></div></form>`);
+  const form = $('#lpb-sc-form');
+  form.addEventListener('change', () => { $('#lsc-brief-wrap').hidden = form.querySelector('[name=lsc-mode]:checked').value === 'keep'; });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const go = $('#lsc-go');
+    go.disabled = true;
+    go.textContent = 'Lagi baca halaman & nyusun blok… (±30-90 detik)';
+    try {
+      const d = await api('/api/lp-pages/scrape', json('POST', {
+        url: $('#lsc-url').value, mode: form.querySelector('[name=lsc-mode]:checked').value,
+        brief: $('#lsc-brief').value, cta_url: $('#lsc-cta').value, images: $('#lsc-img').checked,
+      }));
+      const { source, ...data } = d;
+      cur.data = normalize(data);
+      openIdx = 0;
+      closeModal();
+      markDirty();
+      drawShell();
+      toast(`Hasil scrap dari ${new URL(source.url).hostname} siap. Cek, edit, lalu Simpan.`);
+    } catch (ex) {
+      toast(ex.message);
+      go.disabled = false;
+      go.textContent = 'Coba lagi';
     }
   });
 }
@@ -354,6 +395,7 @@ function bind() {
         await loadPages();
       }
       if (t.id === 'lpb-ai') aiModal();
+      if (t.id === 'lpb-scrape') scrapeModal();
       if (t.id === 'lpb-launch') await launchModal();
       if (t.id === 'lpb-pub') publishModal();
       if (t.id === 'lpb-dl-html') download(`${fileBase()}.html`, renderLp(cur.data), 'text/html;charset=utf-8');

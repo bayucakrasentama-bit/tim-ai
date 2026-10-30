@@ -3,6 +3,7 @@
 // Halaman terbit disajikan dengan CSP sandbox supaya skrip di dalamnya tidak bisa memakai sesi login TIM-AI.
 import { now } from './db.js';
 import { askClaude, AiError, brandBlock } from './ai.js';
+import { scrapePage, ScrapeError } from './lp-scrape.js';
 
 const str = { type: 'string' };
 const obj = (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
@@ -22,7 +23,21 @@ const LP_SCHEMA = obj({
   },
 });
 
-const SLUG = /^[a-z0-9][a-z0-9-]{1,60}$/;
+// Hasil scrap boleh memakai blok gambar (link gambar asli dari halaman referensi).
+const SCRAPE_SCHEMA = obj({
+  ...LP_SCHEMA.properties,
+  sections: {
+    type: 'array',
+    items: obj({
+      type: { type: 'string', enum: [...SECTION_TYPES, 'image'] },
+      heading: str, subheading: str, body: str,
+      items: { type: 'array', items: obj({ title: str, text: str }) },
+      cta_text: str, cta_url: str, image_url: str,
+    }),
+  },
+});
+
+const SLUG =/^[a-z0-9][a-z0-9-]{1,60}$/;
 const clip = (s, n) => String(s ?? '').trim().slice(0, n);
 
 export function lpPublicRoute(app, db) {
@@ -123,6 +138,59 @@ Aturan:
       res.json(data);
     } catch (err) {
       if (err instanceof AiError) return res.status(err.status).json({ error: err.message });
+      throw err;
+    }
+  });
+
+  // Scrap LP dari link referensi: server mengambil halamannya, AI memetakan isinya ke blok LP Builder.
+  // mode "rewrite" = tiru struktur & alur, tulis ulang untuk brand sendiri; "keep" = pakai teks aslinya apa adanya.
+  app.post('/api/lp-pages/scrape', scope, async (req, res) => {
+    const b = req.body || {};
+    const keep = b.mode === 'keep';
+    try {
+      const src = await scrapePage(clip(b.url, 2000));
+      const data = await askClaude({
+        schema: SCRAPE_SCHEMA,
+        effort: 'medium',
+        maxTokens: 16000,
+        content: `${keep ? '' : `${brandBlock(req.brand)}\n\n`}Ini hasil scrap sebuah landing page referensi. Ubah jadi landing page berbasis blok.
+
+URL: ${src.url}
+Judul: ${src.title}
+Deskripsi: ${src.description}
+Warna yang paling sering dipakai (urut terbanyak): ${src.colors.join(', ') || '-'}${src.theme_color ? ` · theme-color ${src.theme_color}` : ''}
+Font: ${src.fonts.join(', ') || '-'}
+Gambar (nomor sesuai [GAMBAR n] di kerangka):
+${src.images.map((u, i) => `${i + 1}. ${u}`).join('\n') || '-'}${src.og_image ? `\nGambar og:image: ${src.og_image}` : ''}
+
+Kerangka isi halaman (urut dari atas; # = judul, - = poin, [TOMBOL: teks → link]):
+"""
+${src.outline}
+"""
+
+${keep
+  ? 'Tugas: pindahkan ISI ASLI halaman ini ke blok, sedekat mungkin dengan teks aslinya (jangan ditulis ulang, boleh dirapikan typo/spasi). Ikuti urutan section aslinya.'
+  : `Tugas: tiru STRUKTUR, alur persuasi, dan gaya visual halaman ini (urutan section, jenis hook, cara menyajikan masalah/manfaat/bukti/penawaran), tapi TULIS ULANG semua kalimatnya dengan kata-kata baru untuk brand di atas. Jangan menyalin kalimat, nama produk, nama orang, atau klaim milik halaman referensi.
+Brief tambahan: ${clip(b.brief, 3000) || '(tidak ada — sesuaikan dengan profil brand)'}
+Testimoni: jangan pakai testimoni dari referensi; isi contoh dan tulis "Contoh testimoni" di text.`}
+Link tombol: ${clip(b.cta_url, 500) || (keep ? 'pakai link tombol asli dari kerangka' : 'https://wa.me/')}
+
+Aturan:
+- Tipe blok: ${SECTION_TYPES.join(', ')}, image. Mulai "hero", akhiri "cta". 6-14 section sesuai panjang halaman asli.
+- hero: heading = headline, subheading = penjelas, cta_text & cta_url terisi${b.images === false ? '.' : ', image_url = gambar utama/produk dari daftar (pilih yang paling relevan, boleh kosong).'}
+- ${b.images === false ? 'Jangan pakai gambar dari halaman asli: image_url selalu string kosong, jangan buat blok image.' : 'Blok "image": image_url diambil PERSIS dari daftar gambar di atas (jangan mengarang URL), heading = keterangan singkat. Pakai hanya untuk gambar konten penting (produk, before-after, infografis), bukan logo/ikon.'}
+- problem/benefits/features/steps/testimonials/faq: isi items (title + text). offer: heading = nama paket, subheading = harga, body = harga coret/garansi, items = isi paket/bonus.
+- Field yang tidak dipakai isi string kosong, items yang tidak dipakai isi array kosong, image_url kosong untuk blok selain hero/image.
+- theme: ambil warna utama & aksen dari warna referensi (hex #rrggbb), background & text yang kontrasnya nyaman dibaca. font = yang paling mirip dengan font referensi, salah satu dari: Inter, Poppins, Plus Jakarta Sans, DM Sans, Playfair Display, Montserrat.
+- title & description: untuk SEO halaman baru.${keep ? '' : '\n- Hindari klaim mutlak/overclaim ("pasti", "100%", "dijamin sembuh"). Bahasa lisan Indonesia yang luwes.'}`,
+      });
+      // Gambar hanya boleh dari halaman sumber (AI kadang mengarang URL).
+      const allowed = new Set([...src.images, src.og_image].filter(Boolean));
+      for (const s of data.sections || []) if (s.image_url && !allowed.has(s.image_url)) s.image_url = '';
+      data.sections = (data.sections || []).filter((s) => s.type !== 'image' || s.image_url);
+      res.json({ ...data, source: { url: src.url, title: src.title, images: src.images.length } });
+    } catch (err) {
+      if (err instanceof AiError || err instanceof ScrapeError) return res.status(err.status).json({ error: err.message });
       throw err;
     }
   });
