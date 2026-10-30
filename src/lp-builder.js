@@ -64,7 +64,7 @@ export function lpRoutes(app, db, scope) {
     if (!p) return res.status(404).json({ error: 'Halaman tidak ditemukan' });
     const name = req.body?.name !== undefined ? clip(req.body.name, 120) || p.name : p.name;
     const data = req.body?.data && typeof req.body.data === 'object' ? JSON.stringify(req.body.data) : p.data;
-    if (data.length > 2_000_000) return res.status(400).json({ error: 'Halaman terlalu besar (maks 2 MB). Pakai link gambar, bukan gambar tertanam.' });
+    if (data.length > 3_500_000) return res.status(400).json({ error: 'Halaman terlalu besar (maks 3,5 MB). Ganti sebagian gambar tertanam dengan link gambar.' });
     // Halaman yang sudah terbit ikut diperbarui kalau HTML barunya dikirim.
     const html = p.published && typeof req.body?.html === 'string' ? req.body.html : p.html;
     const [row] = await db.run('UPDATE lp_pages SET name = ?, data = ?, html = ?, updated_at = ? WHERE id = ? RETURNING *', name, data, html, now(), p.id);
@@ -87,11 +87,61 @@ export function lpRoutes(app, db, scope) {
     if (!SLUG.test(slug)) return res.status(400).json({ error: 'Alamat 2-61 karakter: huruf kecil, angka, dan strip' });
     const html = String(req.body?.html || '');
     if (!html.includes('<html')) return res.status(400).json({ error: 'HTML halaman kosong' });
-    if (html.length > 3_000_000) return res.status(400).json({ error: 'HTML terlalu besar (maks 3 MB)' });
+    if (html.length > 3_500_000) return res.status(400).json({ error: 'HTML terlalu besar (maks 3,5 MB)' });
     const taken = await db.get('SELECT id FROM lp_pages WHERE slug = ? AND id <> ?', slug, p.id);
     if (taken) return res.status(400).json({ error: 'Alamat ini sudah dipakai halaman lain' });
     const [row] = await db.run('UPDATE lp_pages SET slug = ?, html = ?, published = 1, updated_at = ? WHERE id = ? RETURNING *', slug, html, now(), p.id);
     res.json(pub(row));
+  });
+
+  // Template dari referensi: AI menulis ulang potongan teks (desain/HTML tidak disentuh) untuk produk lain.
+  // Potongan dikirim dalam beberapa batch paralel supaya halaman panjang tetap muat.
+  app.post('/api/lp-pages/ai-rewrite', scope, async (req, res) => {
+    const b = req.body || {};
+    const product = clip(b.product, 120);
+    const brief = clip(b.brief, 4000);
+    if (!product || !brief) return res.status(400).json({ error: 'Isi nama produk dan brief-nya dulu' });
+    const segs = (Array.isArray(b.segments) ? b.segments : []).slice(0, 600)
+      .map((s) => ({ id: clip(s?.id, 20), html: clip(s?.html, 3000) })).filter((s) => s.id && s.html);
+    if (!segs.length) return res.status(400).json({ error: 'Template ini tidak punya teks untuk ditulis ulang' });
+    const chunks = [];
+    let size = Infinity;
+    for (const s of segs) {
+      if (size + s.html.length > 6000) { chunks.push([]); size = 0; }
+      chunks.at(-1).push(s);
+      size += s.html.length;
+    }
+    const schema = obj({ items: { type: 'array', items: obj({ id: str, html: str }) } });
+    const rules = `${brandBlock(req.brand)}
+
+Kamu copywriter landing page Indonesia. Template di bawah adalah landing page produk LAMA ("${clip(b.old_product, 120) || 'produk referensi'}").
+Tulis ulang setiap potongan untuk produk BARU, dengan struktur & gaya persuasi yang sama.
+
+Produk baru: ${product}
+Brief produk baru: ${brief}
+${clip(b.tone, 300) ? `Gaya bahasa: ${clip(b.tone, 300)}
+` : ''}
+Aturan:
+- Kembalikan SEMUA id yang diberikan, masing-masing satu kali, dengan isi baru di "html".
+- Pertahankan peran & panjang tiap potongan (±30%): judul tetap judul, tombol tetap pendek, poin tetap poin.
+- Pertahankan tag HTML inline yang ada (mis. <span class="...">, <strong>, <br>) dan penanda ikon seperti ⟦0⟧ persis di posisi yang sesuai. Jangan menambah tag baru.
+- Teks antarmuka umum (Hari, Jam, Menit, Detik, tanda –, angka urutan) biarkan sama.
+- Jangan mengarang fakta yang tidak ada di brief: testimoni, nama pelanggan, jumlah pembeli/terjual, rating, izin (BPOM/Halal/SNI), sertifikat, harga, alamat, nomor telepon. Kalau potongan berisi hal itu dan brief tidak menyebutnya, tulis placeholder dalam kurung siku, mis. [Testimoni asli pelanggan], [Nama, kota], [Harga promo], [Nomor izin].
+- Hindari klaim mutlak/overclaim ("pasti sembuh", "100% berhasil", "dijamin").
+- id "title" = judul tab, "description" = deskripsi SEO (maks 160 karakter), "wa" = isi pesan WhatsApp otomatis dari pembeli ke admin, id yang diawali "alt" = teks alt gambar.`;
+    try {
+      const results = await Promise.all(chunks.map((chunk) => askClaude({
+        schema, effort: 'low', maxTokens: 16000,
+        content: `${rules}
+
+Potongan (JSON):
+${JSON.stringify(chunk)}`,
+      })));
+      res.json({ items: results.flatMap((r) => r.items || []) });
+    } catch (err) {
+      if (err instanceof AiError) return res.status(err.status).json({ error: err.message });
+      throw err;
+    }
   });
 
   // Isi landing page dari brief (AI). Hasilnya JSON blok yang langsung bisa diedit di builder.

@@ -50,6 +50,8 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   app.set('trust proxy', true); // supaya https & host asli terbaca di belakang proxy Vercel
   // Screenshot untuk AI dikirim sebagai base64 (sudah diperkecil di browser); batas body Vercel 4,5 MB.
   app.use('/api/ai/extract', express.json({ limit: '4mb' }));
+  // Template LP dari referensi bisa membawa gambar tertanam (base64), jadi body-nya besar.
+  app.use('/api/lp-pages', express.json({ limit: '4mb' }));
   // Webhook chat butuh body mentah untuk verifikasi tanda tangan platform.
   app.use('/api/chat/webhook', express.raw({ type: '*/*', limit: '2mb' }), (req, _res, next) => {
     req.rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';

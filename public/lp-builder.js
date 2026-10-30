@@ -2,6 +2,7 @@
 // - Pratinjau langsung (desktop/HP) dan bisa diedit langsung dengan klik teks di pratinjau.
 // - Hasil: HTML utuh (satu file, siap upload ke hosting mana pun) dan JSON (bisa diimpor lagi / diedit tim lain).
 // - Bisa diisi AI dari brief, diimpor dari Launch Lab, dan diterbitkan di /p/<alamat>.
+// - Template dari referensi: impor HTML landing page jadi (desain sendiri), edit teks/gambar/link, lalu AI menyesuaikan ke produk lain.
 const S = window.siarin;
 const { api, esc, toast, openModal, closeModal, state } = S;
 const $ = (sel) => document.querySelector(sel);
@@ -119,6 +120,7 @@ function setPath(path, value) {
 const itemsToText = (items) => (items || []).map((it) => (it.text ? `${it.title} | ${it.text}` : it.title)).join('\n');
 const textToItems = (t) => String(t || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [title, ...rest] = l.split('|'); return { title: title.trim(), text: rest.join('|').trim() }; });
 function normalize(d) {
+  if (isTpl(d)) return { kind: 'template', title: String(d.title || ''), description: String(d.description || ''), html: String(d.html || '') };
   const base = STARTER();
   return {
     title: String(d?.title || base.title), description: String(d?.description || ''),
@@ -136,11 +138,263 @@ function download(name, content, type) {
 }
 const fileBase = () => (cur.slug || cur.name || 'landing-page').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'landing-page';
 
+// ---------------- Template dari referensi (HTML desain sendiri) ----------------
+// data = { kind: 'template', title, description, html }. Desain & HTML asli tidak diubah: yang diedit cuma teks, gambar, dan link.
+// tplDoc = HTML yang sudah di-parse (skrip tidak jalan); tiap elemen berteks diberi data-tpl, tiap gambar data-tpl-img.
+let tplDoc = null;
+const isTpl = (d) => d?.kind === 'template';
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'TEMPLATE', 'IFRAME']);
+
+function parseTemplate(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  let n = 0;
+  let m = 0;
+  const walk = (el, inside) => {
+    for (const c of el.children) {
+      if (SKIP_TAGS.has(c.tagName) || c.namespaceURI === SVG_NS) continue;
+      if (c.tagName === 'IMG') c.setAttribute('data-tpl-img', m++);
+      const hasText = [...c.childNodes].some((x) => x.nodeType === 3 && x.textContent.trim());
+      if (!inside && hasText) { c.setAttribute('data-tpl', n++); walk(c, true); } else walk(c, inside);
+    }
+  };
+  walk(doc.body, false);
+  return doc;
+}
+// HTML bersih (tanpa penanda editor) untuk disimpan, diunduh, dan diterbitkan.
+function tplHtml() {
+  const root = tplDoc.documentElement.cloneNode(true);
+  root.querySelectorAll('[data-tpl], [data-tpl-img]').forEach((el) => { el.removeAttribute('data-tpl'); el.removeAttribute('data-tpl-img'); });
+  return `<!doctype html>\n${root.outerHTML}`;
+}
+function syncTpl() {
+  cur.data.html = tplHtml();
+  cur.data.title = tplDoc.title;
+  markDirty();
+}
+// Impor HTML referensi: buang bagian khusus tampilan pembuatnya (panel ekspor, modal) seperti saat referensi itu diekspor.
+function templateFromHtml(html, name) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('[data-noexport]:not([data-noexport="keep-in-export"])').forEach((el) => el.remove());
+  return { kind: 'template', title: doc.title || name, description: doc.querySelector('meta[name=description]')?.content || '', html: `<!doctype html>\n${doc.documentElement.outerHTML}` };
+}
+
+// Pratinjau editor: HTML bertanda + skrip kecil untuk edit teks (contenteditable) dan klik gambar.
+const TPL_EDIT_SCRIPT = `<script>(function(){
+var st=document.createElement('style');st.textContent='[data-tpl]{outline:1px dashed transparent;outline-offset:2px;border-radius:3px;transition:outline-color .15s}[data-tpl]:hover{outline-color:rgba(91,75,219,.65)}[data-tpl]:focus{outline:2px solid #5b4bdb}[data-tpl-img]{cursor:pointer}[data-tpl-img]:hover{outline:3px solid #f59e0b;outline-offset:-3px}';document.head.appendChild(st);
+document.querySelectorAll('[data-tpl]').forEach(function(el){el.contentEditable='true';el.spellcheck=false;
+el.addEventListener('input',function(){parent.postMessage({tplEdit:+el.getAttribute('data-tpl'),html:el.innerHTML},'*')});});
+document.addEventListener('click',function(e){var img=e.target.closest('[data-tpl-img]');if(img){e.preventDefault();e.stopPropagation();parent.postMessage({tplImg:+img.getAttribute('data-tpl-img')},'*');return}
+if(e.target.closest('a'))e.preventDefault()},true);
+window.addEventListener('message',function(e){if(e.data&&e.data.setImg!=null){var im=document.querySelector('[data-tpl-img="'+e.data.setImg+'"]');if(im){im.src=e.data.src;im.removeAttribute('srcset')}}});
+})();<\/script>`;
+function tplPreviewHtml() {
+  const html = `<!doctype html>\n${tplDoc.documentElement.outerHTML}`;
+  if (!editInPreview) return tplHtml();
+  return html.includes('</body>') ? html.replace(/<\/body>(?![\s\S]*<\/body>)/, `${TPL_EDIT_SCRIPT}</body>`) : html + TPL_EDIT_SCRIPT;
+}
+
+// Link tombol (WA, marketplace, checkout): dikelompokkan per alamat supaya sekali ganti, semua tombol ikut.
+const linkKind = (h) => (/wa\.me|whatsapp\.com/i.test(h) ? 'WhatsApp' : /shopee/i.test(h) ? 'Shopee' : /tokopedia/i.test(h) ? 'Tokopedia' : /tiktok/i.test(h) ? 'TikTok Shop' : /lazada/i.test(h) ? 'Lazada' : /^tel:/i.test(h) ? 'Telepon' : /^mailto:/i.test(h) ? 'Email' : 'Link');
+function tplLinks() {
+  const map = new Map();
+  tplDoc.querySelectorAll('a[href]').forEach((a) => {
+    const h = a.getAttribute('href');
+    if (!h || h.startsWith('#') || /^javascript:/i.test(h)) return;
+    map.set(h, (map.get(h) || 0) + 1);
+  });
+  return [...map.entries()];
+}
+function replaceLink(from, to) {
+  tplDoc.querySelectorAll('a[href]').forEach((a) => { if (a.getAttribute('href') === from) a.setAttribute('href', to); });
+}
+
+function drawTemplateEditor() {
+  const d = cur.data;
+  const imgs = [...tplDoc.querySelectorAll('[data-tpl-img]')];
+  const links = tplLinks();
+  $('#lpb-side').innerHTML = `
+    <div class="lpb-group"><span class="tag">Template dari referensi</span>
+      <p class="hint">Desain asli dipertahankan. Klik teks di pratinjau untuk mengedit, klik gambar untuk mengganti.</p>
+      <button class="primary ai" id="tpl-ai" type="button">✨ Sesuaikan ke produk lain (AI)</button></div>
+    <div class="lpb-group"><label class="label" for="lpb-name">Nama halaman</label><input id="lpb-name" value="${esc(cur.name)}">
+      <label class="label" for="tpl-title">Judul tab browser / SEO</label><input id="tpl-title" value="${esc(tplDoc.title)}">
+      <label class="label" for="tpl-desc">Deskripsi SEO</label><input id="tpl-desc" value="${esc(tplDoc.querySelector('meta[name=description]')?.content || '')}"></div>
+    <details class="lpb-group" open><summary class="label">Link tombol (${links.length})</summary>
+      ${links.map(([h, n], i) => `<label class="label" for="tpl-link-${i}">${linkKind(h)} · ${n} tombol</label><input id="tpl-link-${i}" data-tpl-link="${esc(h)}" value="${esc(h)}" spellcheck="false">`).join('') || '<p class="hint">Tidak ada link.</p>'}</details>
+    <details class="lpb-group"><summary class="label">Gambar (${imgs.length})</summary>
+      <div class="tpl-imgs">${imgs.map((im) => `<button type="button" class="tpl-img" data-tpl-pick="${im.getAttribute('data-tpl-img')}" title="${esc(im.getAttribute('alt') || 'Ganti gambar')}"><img src="${esc(im.getAttribute('src') || '')}" alt=""></button>`).join('')}</div></details>
+    <div class="btn-row left"><button class="ghost small" id="tpl-dup" type="button">⧉ Duplikat jadi halaman baru</button><button class="ghost small" id="tpl-code" type="button">&lt;/&gt; Edit HTML</button></div>`;
+}
+
+// Ganti gambar: link https, atau upload (diperkecil & dikompres jadi WebP tertanam).
+async function shrinkImage(file, max = 1400) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k);
+  c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/webp', 0.82);
+}
+function imageModal(i) {
+  const im = tplDoc.querySelector(`[data-tpl-img="${i}"]`);
+  if (!im) return;
+  const alt = im.getAttribute('alt') || '';
+  openModal(`<form id="tpl-img-form"><h3>Ganti gambar</h3>
+    <img class="tpl-img-big" src="${esc(im.getAttribute('src') || '')}" alt="">
+    <label class="label" for="tpl-img-file">Upload gambar baru</label><input id="tpl-img-file" type="file" accept="image/*">
+    <label class="label" for="tpl-img-url">…atau link gambar (https://)</label><input id="tpl-img-url" placeholder="https://">
+    <label class="label" for="tpl-img-alt">Teks alt (deskripsi gambar)</label><input id="tpl-img-alt" value="${esc(alt)}">
+    <p class="hint">Belum punya gambarnya? ${S.gemini?.button('image', { text: `Foto produk untuk landing page: ${alt}`, label: 'Buat di Gemini Images', cls: 'link' }) || ''}</p>
+    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary">Pakai</button></div></form>`);
+  $('#tpl-img-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = $('#tpl-img-file').files[0];
+    const url = $('#tpl-img-url').value.trim();
+    let src = '';
+    try {
+      if (file) src = await shrinkImage(file);
+      else if (url) {
+        if (!/^https:\/\//i.test(url)) throw new Error('Link gambar harus https://');
+        src = url;
+      }
+    } catch (ex) { return toast(ex.message); }
+    if (src) { im.setAttribute('src', src); im.removeAttribute('srcset'); $('#lpb-frame')?.contentWindow?.postMessage({ setImg: i, src }, '*'); }
+    im.setAttribute('alt', $('#tpl-img-alt').value);
+    syncTpl();
+    closeModal();
+    drawTemplateEditor();
+  });
+}
+
+function codeModal() {
+  openModal(`<form id="tpl-code-form" class="wide"><h3>Edit HTML template</h3>
+    <textarea id="tpl-code-area" rows="22" class="mono" spellcheck="false">${esc(tplHtml())}</textarea>
+    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary">Terapkan</button></div></form>`);
+  $('#tpl-code-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    tplDoc = parseTemplate($('#tpl-code-area').value);
+    syncTpl();
+    closeModal();
+    drawShell();
+  });
+}
+
+// Potongan teks untuk AI. Ikon SVG di dalam teks diganti penanda ⟦n⟧ (hemat token & tidak dirusak AI), lalu dipasang lagi.
+function tplSegments() {
+  const segs = [];
+  const icons = {};
+  tplDoc.querySelectorAll('[data-tpl]').forEach((el) => {
+    const id = `s${el.getAttribute('data-tpl')}`;
+    const clone = el.cloneNode(true);
+    const svgs = [];
+    clone.querySelectorAll('svg').forEach((svg) => { svg.replaceWith(`⟦${svgs.length}⟧`); svgs.push(svg.outerHTML); });
+    clone.querySelectorAll('[data-tpl-img]').forEach((x) => x.removeAttribute('data-tpl-img'));
+    const html = clone.innerHTML.trim();
+    if (!clone.textContent.replace(/⟦\d+⟧/g, '').trim()) return;
+    icons[id] = svgs;
+    segs.push({ id, html });
+  });
+  segs.push({ id: 'title', html: tplDoc.title });
+  const desc = tplDoc.querySelector('meta[name=description]');
+  if (desc?.content) segs.push({ id: 'description', html: desc.content });
+  tplDoc.querySelectorAll('[data-tpl-img]').forEach((im) => { if (im.getAttribute('alt')) segs.push({ id: `alt${im.getAttribute('data-tpl-img')}`, html: im.getAttribute('alt') }); });
+  const wa = tplLinks().map(([h]) => h).find((h) => /wa\.me|whatsapp\.com/i.test(h));
+  const waText = wa && new URL(wa, location.href).searchParams.get('text');
+  if (waText) segs.push({ id: 'wa', html: waText });
+  return { segs, icons };
+}
+const cleanAiHtml = (h) => String(h || '').replace(/<\s*(script|style|iframe|object|embed)[\s\S]*?(<\/\s*\1\s*>|$)/gi, '').replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/javascript:/gi, '');
+
+function applyAi(items, icons, { wa, shop }) {
+  const byId = Object.fromEntries(items.map((x) => [x.id, x.html]));
+  tplDoc.querySelectorAll('[data-tpl]').forEach((el) => {
+    const id = `s${el.getAttribute('data-tpl')}`;
+    if (byId[id] === undefined) return;
+    const svgs = icons[id] || [];
+    let html = cleanAiHtml(byId[id]);
+    const used = new Set();
+    html = html.replace(/⟦(\d+)⟧/g, (_, n) => { used.add(Number(n)); return svgs[n] || ''; });
+    // Ikon yang hilang dari jawaban AI dipasang lagi di depan teks.
+    const lost = svgs.filter((_, n) => !used.has(n)).join('');
+    const imgs = [...el.querySelectorAll('[data-tpl-img]')].map((x) => x.outerHTML).join('');
+    el.innerHTML = lost + html + (html.includes('<img') ? '' : imgs);
+  });
+  if (byId.title) tplDoc.title = cleanAiHtml(byId.title).replace(/<[^>]+>/g, '');
+  const desc = tplDoc.querySelector('meta[name=description]');
+  if (desc && byId.description) desc.setAttribute('content', byId.description.replace(/<[^>]+>/g, '').slice(0, 300));
+  tplDoc.querySelectorAll('[data-tpl-img]').forEach((im) => { const a = byId[`alt${im.getAttribute('data-tpl-img')}`]; if (a !== undefined) im.setAttribute('alt', a.replace(/<[^>]+>/g, '')); });
+  // Link: nomor WA baru (+ pesan otomatis baru), dan link marketplace/checkout baru.
+  const waText = byId.wa ? byId.wa.replace(/<[^>]+>/g, '') : '';
+  tplLinks().forEach(([h]) => {
+    if (/wa\.me|whatsapp\.com/i.test(h)) {
+      const u = new URL(h, location.href);
+      const num = wa ? wa.replace(/\D/g, '').replace(/^0/, '62') : (u.pathname.match(/\d{6,}/)?.[0] || u.searchParams.get('phone') || '');
+      const text = waText || u.searchParams.get('text') || '';
+      replaceLink(h, `https://wa.me/${num}${text ? `?text=${encodeURIComponent(text)}` : ''}`);
+    } else if (shop && /shopee|tokopedia|tiktok|lazada|blibli|bukalapak/i.test(h)) replaceLink(h, shop);
+  });
+}
+
+function tplAiModal() {
+  openModal(`<form id="tpl-ai-form"><h3>✨ Sesuaikan template ke produk lain</h3>
+    <p class="hint">AI menulis ulang semua teks halaman ini untuk produkmu, desain & tata letak tetap sama. Gambar produk ganti sendiri setelahnya (klik gambar di pratinjau).</p>
+    <label class="label" for="tai-name">Nama produk</label><input id="tai-name" required placeholder="mis. Madu Habbatussauda Zestbee">
+    <label class="label" for="tai-brief">Brief produk</label>
+    <textarea id="tai-brief" rows="6" required placeholder="Untuk siapa, masalah yang diselesaikan, kandungan/fitur, cara pakai, isi paket, harga & promo, izin (BPOM/Halal) kalau ada, garansi. Makin lengkap makin sedikit placeholder [..]."></textarea>
+    <div class="form-grid"><div><label class="label" for="tai-wa">Nomor WhatsApp admin</label><input id="tai-wa" placeholder="62812xxxx (kosong = tetap)"></div>
+      <div><label class="label" for="tai-shop">Link marketplace / checkout</label><input id="tai-shop" placeholder="https://shopee.co.id/... (kosong = tetap)"></div></div>
+    <label class="label" for="tai-tone">Gaya bahasa (opsional)</label><input id="tai-tone" placeholder="mis. santai ke ibu muda, atau formal ke profesional">
+    <label class="toggle"><input type="checkbox" id="tai-new" checked> Simpan sebagai halaman baru (referensi asli tetap utuh)</label>
+    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary" id="tai-go">Buat</button></div></form>`);
+  $('#tpl-ai-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('#tai-go');
+    btn.disabled = true;
+    btn.textContent = 'AI lagi nulis… (±30-90 detik)';
+    const { segs, icons } = tplSegments();
+    try {
+      const r = await api('/api/lp-pages/ai-rewrite', json('POST', {
+        product: $('#tai-name').value, brief: $('#tai-brief').value, tone: $('#tai-tone').value, old_product: tplDoc.title, segments: segs,
+      }));
+      const asNew = $('#tai-new').checked;
+      const product = $('#tai-name').value.trim();
+      if (asNew && dirty) await save(true);
+      applyAi(r.items, icons, { wa: $('#tai-wa').value.trim(), shop: $('#tai-shop').value.trim() });
+      const data = { ...cur.data, html: tplHtml(), title: tplDoc.title, description: tplDoc.querySelector('meta[name=description]')?.content || '' };
+      closeModal();
+      if (asNew) {
+        const p = await api('/api/lp-pages', json('POST', { name: `LP ${product}`, data }));
+        await loadPages(p.id);
+      } else {
+        cur.data = data;
+        markDirty();
+        drawShell();
+      }
+      const ph = (data.html.match(/\[[^\]<>]{3,60}\]/g) || []).length;
+      toast(`Draft untuk ${product} siap${ph ? ` · ${ph} placeholder [..] perlu diisi` : ''}. Ganti gambar produknya, lalu Simpan.`);
+    } catch (ex) {
+      toast(ex.message);
+      btn.disabled = false;
+      btn.textContent = 'Coba lagi';
+    }
+  });
+}
+
+const pageHtml = () => (isTpl(cur.data) ? tplHtml() : renderLp(cur.data));
+function ensureTpl() {
+  if (isTpl(cur.data) && tplDoc?.forData !== cur.data) {
+    tplDoc = parseTemplate(cur.data.html);
+    tplDoc.forData = cur.data;
+  }
+}
+
 // ---------------- UI ----------------
 function preview() {
   const f = $('#lpb-frame');
   if (!f) return;
-  f.srcdoc = renderLp(cur.data, { editable: editInPreview });
+  f.srcdoc = isTpl(cur.data) ? tplPreviewHtml() : renderLp(cur.data, { editable: editInPreview });
 }
 const markDirty = () => {
   dirty = true;
@@ -169,6 +423,7 @@ function sectionEditor(s, i) {
 }
 
 function drawEditor() {
+  if (isTpl(cur.data)) return drawTemplateEditor();
   const d = cur.data;
   $('#lpb-side').innerHTML = `
     <div class="lpb-group"><label class="label" for="lpb-name">Nama halaman</label><input id="lpb-name" value="${esc(cur.name)}">
@@ -183,6 +438,7 @@ function drawEditor() {
 }
 
 function drawShell() {
+  ensureTpl();
   const live = cur.published && cur.slug;
   $('#studio-lp').innerHTML = `
   <div class="lpb-bar">
@@ -190,9 +446,9 @@ function drawShell() {
     <button class="ghost small" id="lpb-new">+ Baru</button>
     <button class="primary small" id="lpb-save">Simpan</button>
     <span class="lpb-sep"></span>
-    <button class="ghost small" id="lpb-ai">✨ Isi dengan AI</button>
-    <button class="ghost small" id="lpb-launch">Ambil dari Launch Lab</button>
-    <label class="btn small">Impor JSON/HTML<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label>
+    <button class="ghost small" id="lpb-ai">✨ ${isTpl(cur.data) ? 'Sesuaikan produk (AI)' : 'Isi dengan AI'}</button>
+    ${isTpl(cur.data) ? '' : '<button class="ghost small" id="lpb-launch">Ambil dari Launch Lab</button>'}
+    <label class="btn small" title="HTML landing page jadi (referensi) atau file JSON/HTML dari LP Builder">Impor referensi HTML / JSON<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label>
     <span class="lpb-sep"></span>
     <button class="ghost small" id="lpb-dl-html">⬇ HTML</button>
     <button class="ghost small" id="lpb-dl-json">⬇ JSON</button>
@@ -224,7 +480,7 @@ async function loadPages(selectId) {
 async function save(quiet = false) {
   cur.name = $('#lpb-name')?.value.trim() || cur.name;
   const body = { name: cur.name, data: cur.data };
-  if (cur.published) body.html = renderLp(cur.data);
+  if (cur.published) body.html = pageHtml();
   const saved = await api(`/api/lp-pages/${cur.id}`, json('PATCH', body));
   pages = pages.map((p) => (p.id === saved.id ? saved : p));
   dirty = false;
@@ -304,7 +560,7 @@ function publishModal() {
     e.preventDefault();
     try {
       await save(true);
-      const p = await api(`/api/lp-pages/${cur.id}/publish`, json('POST', { slug: $('#lpp-slug').value, html: renderLp(cur.data) }));
+      const p = await api(`/api/lp-pages/${cur.id}/publish`, json('POST', { slug: $('#lpp-slug').value, html: pageHtml() }));
       Object.assign(cur, { slug: p.slug, published: p.published });
       pages = pages.map((x) => (x.id === p.id ? p : x));
       closeModal();
@@ -326,10 +582,17 @@ async function importFile(f) {
   try {
     if (/\.html?$/i.test(f.name) || /^\s*</.test(text)) {
       const m = /<script type="application\/json" id="lp-data">([\s\S]*?)<\/script>/.exec(text);
-      if (!m) throw new Error('File HTML ini bukan hasil LP Builder (tidak ada data lp-data). Pakai blok "HTML kustom" untuk menempel HTML lain.');
-      data = JSON.parse(m[1]);
+      // HTML hasil LP Builder dibuka lagi sebagai blok; HTML lain (landing page jadi) jadi template referensi.
+      data = m ? JSON.parse(m[1]) : templateFromHtml(text, f.name.replace(/\.html?$/i, ''));
     } else data = JSON.parse(text);
   } catch (ex) { return toast(ex.message.startsWith('File') ? ex.message : 'File tidak bisa dibaca sebagai JSON LP Builder'); }
+  if (isTpl(data)) {
+    // Referensi selalu jadi halaman baru supaya halaman yang sedang dibuka tidak tertimpa.
+    if (data.html.length > 3_400_000) return toast('File terlalu besar (maks ±3,4 MB). Kecilkan gambar tertanamnya dulu.');
+    const p = await api('/api/lp-pages', json('POST', { name: `Referensi ${data.title || f.name}`.slice(0, 120), data }));
+    await loadPages(p.id);
+    return toast('Referensi diimpor jadi template. Klik teks/gambar untuk edit, atau ✨ Sesuaikan produk (AI).');
+  }
   cur.data = normalize(data);
   markDirty();
   drawShell();
@@ -353,10 +616,18 @@ function bind() {
         await api(`/api/lp-pages/${cur.id}`, { method: 'DELETE' });
         await loadPages();
       }
-      if (t.id === 'lpb-ai') aiModal();
+      if (t.id === 'lpb-ai' || t.id === 'tpl-ai') (isTpl(cur.data) ? tplAiModal : aiModal)();
+      if (t.id === 'tpl-code') codeModal();
+      if (t.closest?.('[data-tpl-pick]')) imageModal(Number(t.closest('[data-tpl-pick]').dataset.tplPick));
+      if (t.id === 'tpl-dup') {
+        if (dirty) await save(true);
+        const p = await api('/api/lp-pages', json('POST', { name: `${cur.name} (salinan)`.slice(0, 120), data: cur.data }));
+        await loadPages(p.id);
+        toast('Salinan dibuat. Edit salinannya, referensi asli tetap utuh.');
+      }
       if (t.id === 'lpb-launch') await launchModal();
       if (t.id === 'lpb-pub') publishModal();
-      if (t.id === 'lpb-dl-html') download(`${fileBase()}.html`, renderLp(cur.data), 'text/html;charset=utf-8');
+      if (t.id === 'lpb-dl-html') download(`${fileBase()}.html`, pageHtml(), 'text/html;charset=utf-8');
       if (t.id === 'lpb-dl-json') download(`${fileBase()}.json`, JSON.stringify(cur.data, null, 2), 'application/json');
       if (t.id === 'lpb-add') {
         cur.data.sections.push(blank($('#lpb-addtype').value));
@@ -381,6 +652,15 @@ function bind() {
   root.addEventListener('input', (e) => {
     const t = e.target;
     if (t.id === 'lpb-name') { cur.name = t.value; markDirty(); return; }
+    if (t.id === 'tpl-title') { tplDoc.title = t.value; syncTpl(); return; }
+    if (t.id === 'tpl-desc') {
+      let m = tplDoc.querySelector('meta[name=description]');
+      if (!m) { m = tplDoc.createElement('meta'); m.name = 'description'; tplDoc.head.append(m); }
+      m.setAttribute('content', t.value);
+      syncTpl();
+      return;
+    }
+    if (t.dataset.tplLink !== undefined) return;
     if (t.id === 'lpb-title') cur.data.title = t.value;
     else if (t.id === 'lpb-desc') cur.data.description = t.value;
     else if (t.dataset.theme) cur.data.theme[t.dataset.theme] = t.value;
@@ -403,6 +683,13 @@ function bind() {
     }
     if (t.id === 'lpb-import' && t.files[0]) importFile(t.files[0]);
     if (t.id === 'lpb-inline') { editInPreview = t.checked; preview(); }
+    if (t.dataset.tplLink !== undefined && t.value.trim() && t.value.trim() !== t.dataset.tplLink) {
+      replaceLink(t.dataset.tplLink, t.value.trim());
+      syncTpl();
+      drawTemplateEditor();
+      preview();
+      toast('Link diganti di semua tombol yang memakainya');
+    }
     if (t.dataset.f === 'type' || t.dataset.theme === 'font') { drawEditor(); preview(); }
   });
   // Edit langsung di pratinjau: iframe (sandbox, tanpa akses ke TIM-AI) mengirim perubahan teks lewat postMessage.
@@ -413,7 +700,12 @@ function bind() {
       setPath(e.data.lpEdit, String(e.data.value ?? '').replace(/\n+$/, ''));
       markDirty();
     }
-    if (e.data?.lpEditDone) drawEditor();
+    if (e.data?.lpEditDone && !isTpl(cur.data)) drawEditor();
+    if (isTpl(cur.data) && typeof e.data?.tplEdit === 'number') {
+      const el = tplDoc.querySelector(`[data-tpl="${e.data.tplEdit}"]`);
+      if (el) { el.innerHTML = cleanAiHtml(e.data.html); syncTpl(); }
+    }
+    if (isTpl(cur.data) && typeof e.data?.tplImg === 'number') imageModal(e.data.tplImg);
   });
   $('#studio-lp').closest('.view')?.querySelector('#studio-tabs')?.addEventListener('click', async (e) => {
     const tab = e.target.dataset?.studio;
