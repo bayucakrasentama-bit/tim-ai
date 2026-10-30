@@ -1213,18 +1213,52 @@ const TOOLS = [
 ];
 
 // ---------- Halaman ----------
-const ui = { q: '', cat: 'all', open: null };
+// Tim yang memakai tiap tool (tool bisa dipakai lebih dari satu tim). Urutan = tim utama dulu.
+const TEAMS = { konten: 'Konten', medsos: 'Medsos', digital: 'Digital', adv: 'ADV', mp: 'MP', kol: 'KOL', affiliate: 'Affiliate', cs: 'CS', founder: 'Founder' };
+const TEAM_OF = {
+  'hashtag-generator': 'medsos konten', 'caption-hook-generator': 'konten medsos adv', 'instagram-bio-generator': 'medsos kol affiliate', 'ai-auto-reply': 'cs medsos',
+  'ai-auto-rewrite': 'konten medsos adv', 'cross-platform-post-adapter': 'medsos konten', 'ai-content-label-checker': 'konten adv kol',
+  'ai-voice-generator': 'konten adv', 'female-ai-voice': 'konten adv', 'male-ai-voice': 'konten adv', 'deep-voice-generator': 'konten', 'kid-voice-generator': 'konten',
+  'narrator-voice-generator': 'konten digital', 'podcast-intro-voice': 'konten', 'instagram-reels-voice': 'konten medsos', 'tiktok-voice-generator': 'konten affiliate',
+  'youtube-voice-generator': 'konten', 'whatsapp-voice-message-generator': 'cs', 'spanish-text-to-speech': 'konten adv', 'mexican-spanish-voice': 'konten adv',
+  'argentine-spanish-voice': 'konten adv', 'colombian-spanish-voice': 'konten adv', 'castilian-spanish-voice': 'konten adv', 'portuguese-text-to-speech': 'konten adv',
+  'character-counter': 'medsos konten adv', 'caption-length-checker': 'medsos konten', 'caption-readability-checker': 'konten medsos', 'hashtag-density-checker': 'medsos',
+  'social-media-bio-length-checker': 'medsos kol affiliate', 'link-in-bio-cta-checker': 'medsos digital', 'instagram-font-generator': 'medsos konten', 'aesthetic-symbols': 'medsos konten',
+  'platform-content-rules-checker': 'medsos adv kol', 'platform-content-limits': 'medsos konten adv', 'post-preview': 'medsos konten kol',
+  'engagement-rate-calculator': 'medsos kol affiliate', 'instagram-money-calculator': 'kol founder', 'tiktok-money-calculator': 'kol affiliate founder', 'youtube-money-calculator': 'kol founder', 'kol-rate-calculator': 'kol affiliate',
+  'image-resizer': 'konten mp adv', 'image-size-guide-checker': 'konten adv mp', 'image-crop-checker': 'konten adv', 'thumbnail-safe-zone-checker': 'konten adv', 'thumbnail-title-checker': 'konten',
+  'quote-to-image': 'konten medsos', 'screenshot-background': 'konten digital cs', 'carousel-maker': 'konten medsos', 'photo-video-editor': 'konten mp', 'instagram-feed-planner': 'medsos konten',
+  'background-remover': 'mp konten adv', 'image-search': 'konten adv mp', 'video-search': 'konten adv', 'video-trimmer': 'konten kol affiliate', 'video-compressor': 'konten cs kol',
+  'video-reframe': 'konten adv', 'extract-audio-from-video': 'konten', 'extract-music-from-video': 'konten', 'audio-noise-remover': 'konten', 'remove-noise-from-video': 'konten kol',
+  'social-media-video-spec-checker': 'konten adv kol', 'utm-builder': 'digital adv kol affiliate', 'utm-campaign-name-builder': 'digital adv', 'campaign-link-governance-checker': 'digital adv founder',
+  'bio-link-placement-checker': 'medsos digital', 'username-checker': 'medsos digital founder', 'time-zone-converter': 'medsos founder', 'posting-time-by-timezone-planner': 'medsos',
+  'best-time-slot-finder': 'medsos', 'post-frequency-planner': 'medsos founder', 'social-media-content-calendar-template': 'medsos konten', 'social-media-content-brief-template': 'konten kol',
+  'social-media-marketing-calendar': 'medsos mp adv founder', 'tiktok-post-monitor': 'medsos kol affiliate', 'youtube-post-monitor': 'medsos', 'x-post-monitor': 'medsos', 'telegram-post-monitor': 'medsos',
+  'telegram-registration-checker': 'cs', 'tiktok-transcript-downloader': 'konten', 'youtube-transcript-downloader': 'konten', 'photo-video-downloader': 'konten', 'publer-video-downloader': 'konten',
+  'download-and-remove-music-from-video': 'konten', 'remove-background-music-from-video': 'konten', 'ai-voice-changer': 'konten',
+};
+const teamsOf = (id) => (TEAM_OF[id] || '').split(' ').filter(Boolean);
+const myTeam = () => (TEAMS[state.me?.user.team] ? state.me.user.team : 'all');
+const ui = { q: '', team: null, cat: 'all', open: null };
 function card([id, name, cat, desc]) {
-  return `<button class="ft-card" data-ft-open="${id}"><span class="ft-cat ${cat}">${CATS[cat]}</span><b>${esc(name)}</b><span class="hint">${esc(desc)}</span></button>`;
+  return `<button class="ft-card" data-ft-open="${id}"><span class="ft-cat ${cat}">${CATS[cat]}</span><b>${esc(name)}</b><span class="hint">${esc(desc)}</span>
+    <span class="ft-teams">${teamsOf(id).map((t) => `<span class="${t === ui.team ? 'on' : ''}">${TEAMS[t]}</span>`).join('')}</span></button>`;
 }
 function drawCatalog() {
   const root = $('#view-freetools');
+  ui.team ??= myTeam();
   const q = ui.q.toLowerCase();
-  const list = TOOLS.filter((t) => (ui.cat === 'all' || t[2] === ui.cat) && (!q || `${t[1]} ${t[3]}`.toLowerCase().includes(q)));
-  root.innerHTML = `<div class="page-head"><div><h1>Free Tools</h1><p class="hint">${TOOLS.filter((t) => t[2] !== 'na').length} alat siap pakai untuk semua tim: AI, suara, caption, gambar, video, link, dan perencanaan. Hampir semuanya diproses di browser kamu.</p></div></div>
+  const byTeam = TOOLS.filter((t) => ui.team === 'all' || teamsOf(t[0]).includes(ui.team));
+  const list = byTeam.filter((t) => (ui.cat === 'all' || t[2] === ui.cat) && (!q || `${t[1]} ${t[3]}`.toLowerCase().includes(q)));
+  // Dikelompokkan per jenis alat supaya tiap tim melihat rincian tools-nya.
+  const groups = Object.keys(CATS).map((c) => [c, list.filter((t) => t[2] === c)]).filter(([, l]) => l.length);
+  const chip = (attr, k, l, n, active) => `<button data-${attr}="${k}" class="${active ? 'active' : ''}">${l} <span class="ft-n">${n}</span></button>`;
+  root.innerHTML = `<div class="page-head"><div><h1>Free Tools</h1><p class="hint">${TOOLS.filter((t) => t[2] !== 'na').length} alat siap pakai, dikelompokkan per tim yang memakainya. Hampir semuanya diproses di browser kamu.</p></div></div>
     <input class="ft-search" type="search" placeholder="Cari alat… (mis. hashtag, resize, UTM)" value="${esc(ui.q)}" data-ft-search>
-    <div class="ft-chips"><button data-ft-cat="all" class="${ui.cat === 'all' ? 'active' : ''}">Semua (${TOOLS.length})</button>${Object.entries(CATS).map(([k, l]) => `<button data-ft-cat="${k}" class="${ui.cat === k ? 'active' : ''}">${l} (${TOOLS.filter((t) => t[2] === k).length})</button>`).join('')}</div>
-    <div class="ft-grid">${list.map(card).join('') || '<p class="hint">Tidak ada alat yang cocok.</p>'}</div>`;
+    <div class="label">Tim</div>
+    <div class="ft-chips">${chip('ft-team', 'all', 'Semua tim', TOOLS.length, ui.team === 'all')}${Object.entries(TEAMS).map(([k, l]) => chip('ft-team', k, `${l}${k === myTeam() ? ' (timku)' : ''}`, TOOLS.filter((t) => teamsOf(t[0]).includes(k)).length, ui.team === k)).join('')}</div>
+    <div class="ft-chips small">${chip('ft-cat', 'all', 'Semua jenis', byTeam.length, ui.cat === 'all')}${Object.entries(CATS).map(([k, l]) => [k, l, byTeam.filter((t) => t[2] === k).length]).filter(([, , n]) => n).map(([k, l, n]) => chip('ft-cat', k, l, n, ui.cat === k)).join('')}</div>
+    ${groups.map(([c, l]) => `<div class="ft-group"><h3>${CATS[c]} <span class="hint">${l.length}</span></h3><div class="ft-grid">${l.map(card).join('')}</div></div>`).join('') || '<p class="hint">Tidak ada alat yang cocok.</p>'}`;
 }
 function openTool(id) {
   const t = TOOLS.find((x) => x[0] === id);
@@ -1240,10 +1274,11 @@ function openTool(id) {
 
 const root = $('#view-freetools');
 root.addEventListener('click', (e) => {
-  const d = e.target.closest('[data-ft-open],[data-ft-back],[data-ft-cat],[data-ft-go],[data-ft-copy],[data-ft-copyval]')?.dataset || {};
+  const d = e.target.closest('[data-ft-open],[data-ft-back],[data-ft-cat],[data-ft-team],[data-ft-go],[data-ft-copy],[data-ft-copyval]')?.dataset || {};
   if (d.ftOpen) { openTool(d.ftOpen); window.scrollTo(0, 0); }
   if (d.ftBack !== undefined) { ui.open = null; try { localStorage.removeItem('timai.freetool'); } catch { /* mode privat */ } drawCatalog(); }
   if (d.ftCat) { ui.cat = d.ftCat; drawCatalog(); }
+  if (d.ftTeam) { ui.team = d.ftTeam; ui.cat = 'all'; drawCatalog(); }
   if (d.ftGo) S.show(d.ftGo);
   const copy = d.ftCopyval ?? (d.ftCopy !== undefined ? e.target.closest('.ft-copy')?.querySelector('textarea')?.value : null);
   if (copy != null) navigator.clipboard.writeText(copy).then(() => toast('Disalin ✓'), () => toast('Gagal menyalin'));

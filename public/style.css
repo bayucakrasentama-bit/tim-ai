@@ -1046,6 +1046,12 @@ table.data tbody tr:hover { background: var(--card-2); }
 /* Bukan .tabs: filter kategori harus terlihat semua (Mode Fokus melipat .tabs > 4 tombol). */
 .ft-chips { display: flex; gap: 4px; margin: 12px 0; flex-wrap: wrap; }
 .ft-chips button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; cursor: pointer; color: var(--muted); font: inherit; font-size: 13px; }
+.ft-chips.small button { padding: 4px 11px; font-size: 12px; }
+.ft-chips .ft-n { opacity: .6; font-size: 11px; margin-left: 2px; }
+.ft-group h3 { margin: 18px 0 10px; font-size: 15px; }
+.ft-teams { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 4px; }
+.ft-teams span { font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.ft-teams span.on { border-color: var(--accent); color: var(--accent); }
 .ft-chips button.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .ft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .ft-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; color: var(--text); font: inherit; transition: border-color .15s, transform .15s; }
