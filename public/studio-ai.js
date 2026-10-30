@@ -105,11 +105,11 @@ function renderBuilder(root, ctx = {}) {
       <textarea rows="${ctx.compact ? 6 : 7}" data-sb-prompt spellcheck="false"></textarea>
       <div class="btn-row sb-actions">
         <button type="button" class="primary" data-sb-copy>Salin prompt</button>
-        <a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener" data-sb-chatgpt>Buka ChatGPT ↗</a>
+        <a class="btn" href="https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fgemini.google.com%2Fapp" target="_blank" rel="noopener" data-sb-gemini title="Masuk pakai email Google masing-masing">Buka Gemini ↗</a>
         ${ctx.card ? '' : '<button type="button" class="ghost ai" data-sb-gen>✨ Generate di TIM-AI</button>'}
         <button type="button" class="ghost" data-sb-save>${ctx.card ? '↧ Masukkan ke kartu ini' : 'Simpan ke kartu Planner'}</button>
       </div>
-      <p class="hint">${builderState.ref ? 'Upload juga gambar referensi di ChatGPT/AI pilihanmu. ' : ''}Hasil gambarnya upload ke kartu Planner (Lampiran) supaya ikut terbawa saat dijadwalkan.</p>
+      <p class="hint">${builderState.ref ? 'Upload juga gambar referensi di Gemini. ' : ''}Hasil gambarnya upload ke kartu Planner (Lampiran) supaya ikut terbawa saat dijadwalkan.</p>
     </div>
   </div>`;
   const out = $('[data-sb-prompt]', root);
@@ -149,14 +149,14 @@ function renderBuilder(root, ctx = {}) {
     if (r) { builderState.ratio = r.dataset.sbRatio; $$('[data-sb-ratio]', root).forEach((b) => b.setAttribute('aria-selected', String(b === r))); edited = false; refresh(); return; }
     if (e.target.closest('[data-sb-unref]')) { e.preventDefault(); URL.revokeObjectURL(builderState.ref.url); builderState.ref = null; renderBuilder(root, ctx); return; }
     const missing = tool.fields.find((f) => f.req && !String(v[f.k] || '').trim());
-    if (e.target.closest('[data-sb-copy], [data-sb-gen], [data-sb-save], [data-sb-chatgpt]') && missing) {
+    if (e.target.closest('[data-sb-copy], [data-sb-gen], [data-sb-save], [data-sb-gemini]') && missing) {
       e.preventDefault();
       S.toast(`Isi "${missing.label}" dulu`);
       $(`[data-sb-f="${missing.k}"]`, root)?.focus();
       return;
     }
-    if (e.target.closest('[data-sb-copy]')) copy(out.value, 'Prompt disalin. Tempel di ChatGPT / Gemini / AI gambar pilihanmu.');
-    if (e.target.closest('[data-sb-chatgpt]')) copy(out.value, 'Prompt disalin, tempel di ChatGPT');
+    if (e.target.closest('[data-sb-copy]')) copy(out.value, 'Prompt disalin. Tempel di Gemini atau AI gambar pilihanmu.');
+    if (e.target.closest('[data-sb-gemini]')) copy(out.value, 'Prompt disalin. Pilih akun Google-mu, lalu tempel di Gemini');
     if (e.target.closest('[data-sb-gen]')) sendToGenerate(out.value, builderState.ratio || tool.ratio);
     if (e.target.closest('[data-sb-save]')) saveToCard(ctx, `[Studio · ${tool.name} · ${builderState.ratio || tool.ratio}]\n${out.value}`);
   };

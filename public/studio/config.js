@@ -18,8 +18,8 @@ window.__AF_CONFIG = {
   paymentUrl:   "/",   // WAJIB: ganti dengan link pembayaran/checkout kamu
   affiliateUrl: "",                            // link daftar affiliate (Wajib Di isi "")
 
-  // Link tombol "Buka ChatGPT" di jendela setelah Copy (biarkan apa adanya).
-  chatgptUrl: "https://chatgpt.com/",
+  // Link tombol "Buka Gemini" di jendela setelah Copy: pemilih akun Google dulu, jadi tiap orang masuk pakai emailnya sendiri.
+  chatgptUrl: "https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fgemini.google.com%2Fapp",
 
   /* -- 2b. SOCIAL (footer) ------------------------------------------- */
   instagramUrl:    "",
