@@ -447,9 +447,8 @@ function drawShell() {
     <button class="primary small" id="lpb-save">Simpan</button>
     <span class="lpb-sep"></span>
     <button class="ghost small" id="lpb-ai">✨ ${isTpl(cur.data) ? 'Sesuaikan produk (AI)' : 'Isi dengan AI'}</button>
-    <button class="ghost small" id="lpb-scrape" title="Tempel link landing page referensi">🔗 Scrap dari link</button>
     ${isTpl(cur.data) ? '' : '<button class="ghost small" id="lpb-launch">Ambil dari Launch Lab</button>'}
-    <label class="btn small" title="HTML landing page jadi (referensi) atau file JSON/HTML dari LP Builder">Impor referensi HTML / JSON<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label>
+    <button class="ghost small" id="lpb-scrape" title="Tempel link landing page referensi, atau upload file HTML/JSON">🔗 Impor referensi (link)</button>
     <span class="lpb-sep"></span>
     <button class="ghost small" id="lpb-dl-html">⬇ HTML</button>
     <button class="ghost small" id="lpb-dl-json">⬇ JSON</button>
@@ -519,9 +518,9 @@ function aiModal() {
 }
 
 function scrapeModal() {
-  openModal(`<form id="lpb-sc-form"><h3>🔗 Scrap landing page dari link</h3>
+  openModal(`<form id="lpb-sc-form"><h3>🔗 Impor landing page referensi</h3>
     <label class="label" for="lsc-url">Link landing page referensi</label>
-    <input id="lsc-url" type="url" required placeholder="https://contoh.com/promo" autocomplete="off">
+    <input id="lsc-url" required placeholder="https://contoh.com/promo" autocomplete="off" autofocus>
     <label class="label">Hasilnya mau jadi apa</label>
     <label class="toggle"><input type="radio" name="lsc-mode" value="copy" checked> Salin desain persis jadi template (edit teks/gambar/link, lalu ✨ Sesuaikan produk)</label>
     <label class="toggle"><input type="radio" name="lsc-mode" value="rewrite"> Jadi blok LP Builder: tiru struktur &amp; warna, tulis ulang untuk brand saya (AI)</label>
@@ -534,8 +533,10 @@ function scrapeModal() {
       <p class="hint">Isi halaman yang sedang dibuka akan diganti hasil scrap.</p></div>
     <p class="hint" id="lsc-copy-hint">Jadi halaman baru; halaman yang sedang dibuka tidak tertimpa. Gambar, CSS, dan font tetap diambil dari website sumber.</p>
     <p class="hint">Halaman yang dirender JavaScript atau dikunci login kadang tidak terbaca. Pastikan kamu berhak memakai desain, teks &amp; gambar halaman sumber.</p>
-    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary" id="lsc-go">Scrap</button></div></form>`);
+    <p class="hint">Punya file HTML/JSON-nya? <label class="btn small">Upload file<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label></p>
+    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary" id="lsc-go">Impor</button></div></form>`);
   const form = $('#lpb-sc-form');
+  $('#lpb-import').addEventListener('change', (e) => { if (e.target.files[0]) { closeModal(); importFile(e.target.files[0]); } });
   const mode = () => form.querySelector('[name=lsc-mode]:checked').value;
   form.addEventListener('change', () => {
     $('#lsc-ai-opts').hidden = mode() === 'copy';
@@ -743,7 +744,6 @@ function bind() {
       if (dirty && !confirm('Perubahan belum disimpan. Pindah halaman?')) { t.value = cur.id; return; }
       await loadPages(Number(t.value));
     }
-    if (t.id === 'lpb-import' && t.files[0]) importFile(t.files[0]);
     if (t.id === 'lpb-inline') { editInPreview = t.checked; preview(); }
     if (t.dataset.tplLink !== undefined && t.value.trim() && t.value.trim() !== t.dataset.tplLink) {
       replaceLink(t.dataset.tplLink, t.value.trim());
