@@ -297,7 +297,7 @@ async function openContent(id) {
     <div class="label">Platform</div>
     <div class="checks">${PLATFORMS.map((p) => `<label><input type="checkbox" name="platforms" value="${p.id}" ${item.platforms.includes(p.id) ? 'checked' : ''}> ${p.label}</label>`).join('')}</div>
     <div class="row-between"><label class="label" for="cf-hook">Hook (3 detik pertama)</label>
-      <button type="button" class="link" id="cf-ai">✨ Lengkapi hook, script & caption pakai AI</button></div>
+      <span><button type="button" class="link" id="cf-ai">✨ Lengkapi hook, script & caption pakai AI</button> · ${S.gemini.button('text', { label: 'Tulis di Gemini', cls: 'link', form: 'Lengkapi konten ini: tulis hook 3 detik pertama, script video, dan caption (dengan CTA & hashtag) dalam Bahasa Indonesia.' })}</span></div>
     <textarea id="cf-hook" name="hook" rows="2">${esc(item.hook)}</textarea>
     <label class="label" for="cf-script">Script</label>
     <textarea id="cf-script" name="script" rows="6">${esc(item.script)}</textarea>
@@ -845,7 +845,7 @@ function drawAiPanel() {
       <div><label class="label" for="ai-platform">Platform</label><select id="ai-platform" name="platform"><option value="">Bebas</option>${PLATFORMS.map((p) => `<option>${p.label}</option>`).join('')}</select></div>
       <div><label class="label" for="ai-goal">Tujuan</label><select id="ai-goal" name="goal"><option>Awareness & views</option><option>Engagement</option><option>Follower baru</option><option>Leads & penjualan</option></select></div>
       <div><label class="label" for="ai-count">Jumlah ide</label><select id="ai-count" name="count"><option>3</option><option selected>5</option><option>8</option><option>10</option></select></div>
-      <div class="span-2"><button class="primary" type="submit">✨ Bikin ide, hook & script</button></div></form>`,
+      <div class="span-2 btn-row left"><button class="primary" type="submit">✨ Bikin ide, hook & script</button>${S.gemini.button('text', { label: 'Bikin di Gemini', form: 'Buat ide konten media sosial untuk pasar Indonesia. Tiap ide lengkap dengan judul, hook 3 detik, script, caption, CTA, dan hashtag.' })}</div></form>`,
     analyze: `<form id="ai-form" class="form-grid">
       <div><label class="label" for="ai-days">Periode data</label><select id="ai-days" name="days"><option value="7">7 hari</option><option value="30" selected>30 hari</option><option value="90">90 hari</option></select></div>
       <div class="span-2"><p class="hint">AI membaca data di menu Analitik (views, engagement, funnel, pilar, jam tayang) lalu bilang apa yang jalan, apa yang bocor, dan apa yang harus dikerjakan minggu ini.</p>
@@ -857,7 +857,7 @@ function drawAiPanel() {
       <div><label class="label" for="ai-start">Mulai tanggal</label><input id="ai-start" name="startDate" type="date" value="${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}"></div>
       <div><label class="label" for="ai-weeks">Durasi</label><select id="ai-weeks" name="weeks"><option value="1">1 minggu</option><option value="2">2 minggu</option><option value="4" selected>4 minggu</option></select></div>
       <div><label class="label" for="ai-ppw">Konten per minggu</label><select id="ai-ppw" name="postsPerWeek">${[3, 4, 5, 7, 10, 14].map((n) => `<option ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <div class="span-2"><button class="primary" type="submit">✨ Susun strategi & kalender</button></div></form>`,
+      <div class="span-2 btn-row left"><button class="primary" type="submit">✨ Susun strategi & kalender</button>${S.gemini.button('text', { label: 'Susun di Gemini', form: 'Susun strategi konten media sosial (positioning, pilar konten, jadwal posting, kalender konten per tanggal, dan KPI).' })}</div></form>`,
   };
   $('#ai-panel').innerHTML = forms[aiTab];
   $('#ai-form').addEventListener('submit', runAi);
@@ -999,9 +999,9 @@ async function renderTeam() {
   }
   const users = await api('/api/users');
   const brandName = (id) => state.brands.find((b) => b.id === id)?.name;
-  $('#user-list').innerHTML = `<div class="acc-row"><span class="avatar">★</span><div class="grow"><div class="acc-name">${esc(state.me.user.role === 'owner' ? state.me.user.username : 'Pemilik')}</div><div class="hint">Pemilik · semua brand · login dari APP_USERNAME/APP_PASSWORD</div></div></div>
+  $('#user-list').innerHTML = `<div class="acc-row"><span class="avatar">★</span><div class="grow"><div class="acc-name">${esc(state.me.user.role === 'owner' ? state.me.user.username : 'Pemilik')}</div><div class="hint">Pemilik · semua brand · login dari APP_USERNAME/APP_PASSWORD${state.me.user.role === 'owner' && state.me.user.email ? ` atau Google (${esc(state.me.user.email)})` : ''}</div></div></div>
     ${users.map((u) => `<div class="acc-row"><span class="avatar">${esc(u.username[0].toUpperCase())}</span>
-      <div class="grow"><div class="acc-name">${esc(u.username)}</div>
+      <div class="grow"><div class="acc-name">${esc(u.username)}${u.email ? ` <span class="hint">· ${esc(u.email)}</span>` : ''}</div>
         <div class="hint">${esc(S.TEAM_LABEL[u.team] || '')} · ${u.role === 'admin' ? 'Admin · semua brand' : `Anggota · ${u.brandIds.map(brandName).filter(Boolean).map(esc).join(', ') || 'belum ada brand'}`}</div></div>
       <button class="ghost small" data-edit-user="${u.id}">Edit</button>
       <button class="danger small" data-del-user="${u.id}">Hapus</button></div>`).join('') || ''}
@@ -1048,8 +1048,10 @@ function brandForm(b = null) {
 function userForm(u = null) {
   openModal(`<form id="user-form"><h3>${u ? `Edit ${esc(u.username)}` : 'Anggota baru'}</h3>
     ${u ? '' : '<label class="label" for="uf-name">Username</label><input id="uf-name" name="username" autocomplete="off" placeholder="mis. rina" required>'}
-    <label class="label" for="uf-pass">${u ? 'Password baru (kosongkan kalau tidak diganti)' : 'Password (min. 8 karakter)'}</label>
-    <input id="uf-pass" name="password" type="password" autocomplete="new-password" ${u ? '' : 'required'}>
+    <label class="label" for="uf-email">Email Google (untuk Masuk dengan Google & Gemini)</label>
+    <input id="uf-email" name="email" type="email" autocomplete="off" placeholder="rina@gmail.com" value="${esc(u?.email || '')}">
+    <label class="label" for="uf-pass">${u ? 'Password baru (kosongkan kalau tidak diganti)' : 'Password (opsional kalau pakai email Google, min. 8 karakter)'}</label>
+    <input id="uf-pass" name="password" type="password" autocomplete="new-password">
     <label class="label" for="uf-role">Peran</label>
     <select id="uf-role" name="role"><option value="member" ${!['admin', 'lead'].includes(u?.role) ? 'selected' : ''}>Anggota: cuma brand yang dicentang</option>
 <option value="lead" ${u?.role === 'lead' ? 'selected' : ''}>Lead / Supervisor: approve & revisi kartu, brand yang dicentang</option>
@@ -1063,13 +1065,13 @@ function userForm(u = null) {
   $('#user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;
-    const v = { password: f.password.value, role: f.role.value, team: f.team.value, brandIds: [...f.querySelectorAll('[name=brandIds]:checked')].map((x) => Number(x.value)) };
+    const v = { email: f.email.value, password: f.password.value, role: f.role.value, team: f.team.value, brandIds: [...f.querySelectorAll('[name=brandIds]:checked')].map((x) => Number(x.value)) };
     if (!u) v.username = f.username.value;
     try {
       if (u) await api(`/api/users/${u.id}`, json('PATCH', v));
       else await api('/api/users', json('POST', v));
       closeModal();
-      toast(u ? 'Tersimpan' : 'Anggota ditambahkan. Kasih tahu username & password-nya ke dia.');
+      toast(u ? 'Tersimpan' : v.email ? 'Anggota ditambahkan. Dia bisa langsung Masuk dengan Google pakai email itu.' : 'Anggota ditambahkan. Kasih tahu username & password-nya ke dia.');
       renderTeam();
     } catch (ex) { $('#uf-error').textContent = ex.message; $('#uf-error').hidden = false; }
   });

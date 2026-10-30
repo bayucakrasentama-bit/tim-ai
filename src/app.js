@@ -29,6 +29,7 @@ import { guides } from './guides.js';
 import { adsRoutes, syncStaleAds } from './ads.js';
 import { growthRoutes } from './growth.js';
 import { freeToolRoutes } from './free-tools.js';
+import { googleLoginRoutes, googleLoginSettingsRoutes } from './google-login.js';
 import { partnerRoutes } from './partners.js';
 import { partnerToolRoutes, refreshTrackedPosts } from './partner-tools.js';
 import { lpRoutes, lpPublicRoute } from './lp-builder.js';
@@ -66,6 +67,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
 
   const auth = createAuth(db, login);
   auth.routes(app);
+  googleLoginRoutes(app, db, auth);
 
   // Landing page Launch Lab yang sudah dipublikasikan (publik, tanpa login).
   landingPublicRoute(app, db);
@@ -173,6 +175,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   adsRoutes(app, db);
   growthRoutes(app, db, scope);
   freeToolRoutes(app);
+  googleLoginSettingsRoutes(app, db);
   partnerToolRoutes(app, db);
   partnerRoutes(app, db);
   lpRoutes(app, db, scope);

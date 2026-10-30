@@ -18,8 +18,12 @@ window.__AF_CONFIG = {
   paymentUrl:   "/",   // WAJIB: ganti dengan link pembayaran/checkout kamu
   affiliateUrl: "",                            // link daftar affiliate (Wajib Di isi "")
 
-  // Link tombol "Buka Gemini" di jendela setelah Copy: pemilih akun Google dulu, jadi tiap orang masuk pakai emailnya sendiri.
-  chatgptUrl: "https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fgemini.google.com%2Fapp",
+  // Link tombol "Buka Gemini" setelah Copy: Gemini Images di akun Google user TIM-AI (dari halaman induk),
+  // kalau belum ada email: pemilih akun Google dulu.
+  chatgptUrl: (function () {
+    try { var link = window.parent.siarin.gemini.link('image'); if (link) return link; } catch (e) {}
+    return "https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fgemini.google.com%2Fimages";
+  })(),
 
   /* -- 2b. SOCIAL (footer) ------------------------------------------- */
   instagramUrl:    "",

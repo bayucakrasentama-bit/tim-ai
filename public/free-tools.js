@@ -380,8 +380,11 @@ function ttsTool(id) {
   return async (root) => {
     const p = TTS[id];
     root.innerHTML = '<div class="spinner"></div>';
-    try { voiceCache ??= (await api('/api/ai/voices')).voices; } catch (ex) {
-      root.innerHTML = `<div class="check bad">${esc(ex.message)} <button class="ghost small" data-ft-go="aikeys">Isi key ElevenLabs di AI &amp; API Keys</button></div>`;
+    try { voiceCache ??= (await api('/api/ai/voices')).voices; } catch {
+      // Tanpa ElevenLabs: naskah dibawa ke Google AI Studio (Generate speech) di akun Google masing-masing.
+      root.innerHTML = `<form>${area('text', 'Naskah…', 6, p.sample)}
+        <div class="row-between"><span class="hint">Naskah disalin, lalu AI Studio terbuka di akun Google-mu. Tempel, pilih suara yang cocok, Run.</span>${S.gemini.button('voice', { from: '[name=text]', label: '🎙 Buat suara di AI Studio', cls: 'primary ai' })}</div></form>
+        <p class="hint">Mau langsung jadi MP3 di TIM-AI? Isi key ElevenLabs di <button class="link" data-ft-go="aikeys">AI &amp; API Keys</button>.</p>`;
       return;
     }
     const text = (v) => `${v.name} ${JSON.stringify(v.labels || {})} ${v.description || ''}`.toLowerCase();
@@ -390,7 +393,7 @@ function ttsTool(id) {
     const opt = (v) => `<option value="${esc(v.id)}">${score(v) > 0 && p.kw.length ? '★ ' : ''}${esc(v.name)}${v.labels?.gender ? ` · ${esc(v.labels.gender)}` : ''}${v.labels?.accent ? ` · ${esc(v.labels.accent)}` : ''}${v.labels?.age ? ` · ${esc(v.labels.age)}` : ''}</option>`;
     root.innerHTML = `<form><div class="form-grid">${field('Suara', `<select name="voice">${voices.map(opt).join('')}</select>`, p.kw.length ? '★ = paling cocok untuk preset ini' : '')}
       ${field('Model', select('model', [['eleven_multilingual_v2', 'Multilingual v2 (paling natural)'], ['eleven_turbo_v2_5', 'Turbo v2.5 (cepat, murah)'], ['eleven_flash_v2_5', 'Flash v2.5 (tercepat)']]))}</div>
-      ${area('text', 'Naskah…', 6, p.sample)}<div class="row-between"><span class="hint mono" data-ft-count></span><button class="primary ai">🎙 Buat suara</button></div></form><div class="ft-out"></div>`;
+      ${area('text', 'Naskah…', 6, p.sample)}<div class="row-between"><span class="hint mono" data-ft-count></span><div class="btn-row">${S.gemini.button('voice', { from: '[name=text]', label: 'Buat di AI Studio' })}<button class="primary ai">🎙 Buat suara</button></div></div></form><div class="ft-out"></div>`;
     const count = () => { $('[data-ft-count]', root).textContent = `${$('[name=text]', root).value.length} / 5.000 karakter`; };
     $('[name=text]', root).addEventListener('input', count);
     count();
@@ -1148,7 +1151,7 @@ const TOOLS = [
   ['ai-auto-rewrite', 'AI Auto Rewrite', 'ai', 'Tulis ulang teks dengan gaya lain, 3 versi.', aiTool('ai-auto-rewrite')],
   ['cross-platform-post-adapter', 'Cross-Platform Post Adapter', 'ai', 'Satu postingan diadaptasi untuk 6 platform.', aiTool('cross-platform-post-adapter')],
   ['ai-content-label-checker', 'AI Content Label Checker', 'ai', 'Perlu label konten AI / paid partnership atau tidak?', aiTool('ai-content-label-checker')],
-  ...Object.keys(TTS).map((k) => [k, { 'ai-voice-generator': 'AI Voice Generator', 'female-ai-voice': 'Female AI Voice', 'male-ai-voice': 'Male AI Voice', 'deep-voice-generator': 'Deep Voice Generator', 'kid-voice-generator': 'Kid Voice Generator', 'narrator-voice-generator': 'Narrator Voice Generator', 'podcast-intro-voice': 'Podcast Intro Voice', 'instagram-reels-voice': 'Instagram Reels Voice', 'tiktok-voice-generator': 'TikTok Voice Generator', 'youtube-voice-generator': 'YouTube Voice Generator', 'whatsapp-voice-message-generator': 'WhatsApp Voice Message', 'spanish-text-to-speech': 'Spanish Text to Speech', 'mexican-spanish-voice': 'Mexican Spanish Voice', 'argentine-spanish-voice': 'Argentine Spanish Voice', 'colombian-spanish-voice': 'Colombian Spanish Voice', 'castilian-spanish-voice': 'Castilian Spanish Voice', 'portuguese-text-to-speech': 'Portuguese Text to Speech' }[k], 'voice', 'Teks jadi suara (ElevenLabs), siap untuk konten.', ttsTool(k)]),
+  ...Object.keys(TTS).map((k) => [k, { 'ai-voice-generator': 'AI Voice Generator', 'female-ai-voice': 'Female AI Voice', 'male-ai-voice': 'Male AI Voice', 'deep-voice-generator': 'Deep Voice Generator', 'kid-voice-generator': 'Kid Voice Generator', 'narrator-voice-generator': 'Narrator Voice Generator', 'podcast-intro-voice': 'Podcast Intro Voice', 'instagram-reels-voice': 'Instagram Reels Voice', 'tiktok-voice-generator': 'TikTok Voice Generator', 'youtube-voice-generator': 'YouTube Voice Generator', 'whatsapp-voice-message-generator': 'WhatsApp Voice Message', 'spanish-text-to-speech': 'Spanish Text to Speech', 'mexican-spanish-voice': 'Mexican Spanish Voice', 'argentine-spanish-voice': 'Argentine Spanish Voice', 'colombian-spanish-voice': 'Colombian Spanish Voice', 'castilian-spanish-voice': 'Castilian Spanish Voice', 'portuguese-text-to-speech': 'Portuguese Text to Speech' }[k], 'voice', 'Teks jadi suara lewat Google AI Studio (atau ElevenLabs), siap untuk konten.', ttsTool(k)]),
   ['character-counter', 'Character Counter', 'text', 'Hitung karakter, kata, hashtag, emoji + batas tiap platform.', characterCounter],
   ['caption-length-checker', 'Caption Length Checker', 'text', 'Cek panjang caption & bagian yang terlihat sebelum "selengkapnya".', captionLength],
   ['caption-readability-checker', 'Caption Readability Checker', 'text', 'Skor keterbacaan caption untuk dibaca di HP.', readability],

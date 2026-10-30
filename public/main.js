@@ -25,6 +25,7 @@ import './agents.js';
 import './cs-closer.js';
 import './today.js';
 import './free-tools.js';
+import './google.js'; // setelah suite.js: membungkus hook menu Tim
 import './focus.js';
 import './icons.js';
 import './shell.js';
