@@ -1,6 +1,6 @@
 // Agen AI per tim + CS AI Closing + Kantor AI (tim baru: Tim Founder).
-// - Tim Konten  → Brand Lab: strategi logo, tagline & slogan, brand identity kit.
-// - Tim Digital → Agen Produk Digital: blueprint produk, eBook, LP storytelling, audit konversi LP.
+// - Tim Digital & Konten → Agen Produk & Brand (dulu Brand Lab + Agen Produk Digital): blueprint produk, eBook,
+//   LP storytelling, audit konversi LP, strategi logo, tagline & slogan, brand identity kit.
 // - Tim ADV     → Agen Meta Ads: hook, iklan emosional, big concept, automated rules, CPL, retargeting, scaling, analyzer
 //                 + kalkulator tanpa AI (rencana scaling budget & vonis SCALE/HOLD/OPTIMIZE/KILL).
 // - Tim CS      → CS AI Closing ada di cs-closer.js (Kantor AI membaca datanya lewat window.timCs).
@@ -154,10 +154,10 @@ const AGENTS = [
     out: '## Ringkasan akun (3 kalimat)\n## Vonis per iklan (tabel: Iklan | KPI kunci | Vonis SCALE/HOLD/OPTIMIZE/KILL | Alasan | Tindakan)\n## Pola pemenang (kreatif, audiens, placement)\n## 3 tindakan hari ini' },
 ];
 const byId = Object.fromEntries(AGENTS.map((a) => [a.id, a]));
-const AGENT_VIEW = { konten: 'brandlab', digital: 'agents-digital', adv: 'agents-adv' };
+const AGENT_VIEW = { konten: 'agents-digital', digital: 'agents-digital', adv: 'agents-adv' };
 
 // ======================= RUNNER AGEN (dipakai 3 halaman) =======================
-const ui = { brandlab: { agent: 'logo' }, 'agents-digital': { agent: 'produk' }, 'agents-adv': { tab: 'kreatif', agent: 'hook' } };
+const ui = { 'agents-digital': { agent: 'produk' }, 'agents-adv': { tab: 'kreatif', agent: 'hook' } };
 const usage = () => store.get('usage', {});
 const history = (id) => store.get(`hist.${id}`, []);
 
@@ -286,15 +286,10 @@ function openAgent(id, values = {}) {
   document.getElementById(`view-${view}`).scrollIntoView({ block: 'start' });
 }
 
-// ---------- Brand Lab (Tim Konten) ----------
-const renderBrandLab = () => renderAgents('brandlab', {
-  title: 'Brand Lab', list: AGENTS.filter((a) => a.team === 'konten'),
-  intro: '<b>Tim Konten</b>: rumuskan logo, tagline, dan brand identity sekali, lalu jadikan pegangan semua konten. Hasil bisa langsung jadi kartu Planner.',
-});
-// ---------- Agen Produk Digital (Tim Digital) ----------
+// ---------- Agen Produk & Brand (Tim Digital & Konten; gabungan Brand Lab + Agen Produk Digital) ----------
 const renderDigital = () => renderAgents('agents-digital', {
-  title: 'Agen Produk Digital', list: AGENTS.filter((a) => a.team === 'digital'),
-  intro: '<b>Tim Digital</b>: dari ide sampai produk digital siap launching. Lanjutkan hasil LP ke <b>Studio Visual → LP Builder</b>, lalu audit lagi sebelum iklan jalan.',
+  title: 'Agen Produk & Brand', list: AGENTS.filter((a) => a.team === 'digital' || a.team === 'konten'),
+  intro: '<b>Tim Digital &amp; Konten</b>: dari ide produk, brand (logo, tagline, identity), sampai landing page siap launching. Untuk proyek bertahap riset → copy → visual → LP, pakai tab <b>Launch Lab</b>. Hasil bisa langsung jadi kartu Planner.',
 });
 
 // ======================= AGEN META ADS (Tim ADV) + KALKULATOR =======================
@@ -395,8 +390,8 @@ function renderCalc(body) {
 // ======================= KANTOR AI (Tim Founder — tim baru) =======================
 const TEAM = {
   founder: { label: 'Tim Founder', icon: '🏢', views: [['founder', 'Kantor AI']] },
-  konten: { label: 'Tim Konten', icon: '✍️', views: [['planner', 'Planner'], ['studio', 'Studio Visual'], ['motion', 'Video Motion'], ['ai', 'AI Studio'], ['brandlab', 'Brand Lab']] },
-  digital: { label: 'Tim Digital', icon: '🚀', views: [['launch', 'Launch Lab'], ['agents-digital', 'Agen Produk Digital']] },
+  konten: { label: 'Tim Konten', icon: '✍️', views: [['planner', 'Planner'], ['studio', 'Studio'], ['agents-digital', 'Agen Produk & Brand']] },
+  digital: { label: 'Tim Digital', icon: '🚀', views: [['launch', 'Launch Lab'], ['agents-digital', 'Agen Produk & Brand']] },
   medsos: { label: 'Tim Medsos', icon: '📱', views: [['calendar', 'Kalender'], ['compose', 'Buat Post'], ['analytics', 'Analitik'], ['tiktok', 'Scraper TikTok']] },
   adv: { label: 'Tim ADV', icon: '📣', views: [['adv', 'Iklan ADV'], ['agents-adv', 'Agen Meta Ads']] },
   mp: { label: 'Tim MP', icon: '🛒', views: [['mp', 'Iklan Marketplace']] },
@@ -652,11 +647,9 @@ function bindFounder() {
 // ======================= PASANG =======================
 const { viewHooks } = S;
 const { withStore } = window.timStore;
-viewHooks.brandlab = withStore(renderBrandLab);
 viewHooks['agents-digital'] = withStore(renderDigital);
 viewHooks['agents-adv'] = withStore(renderAdv);
 viewHooks.founder = withStore(renderFounder);
-bindAgents('brandlab', renderBrandLab);
 bindAgents('agents-digital', renderDigital);
 bindAgents('agents-adv', renderAdv);
 bindFounder();

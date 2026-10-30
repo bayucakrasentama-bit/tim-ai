@@ -1,4 +1,4 @@
-// Mode Fokus (default): untuk tim kecil 1–2 orang. Sidebar jadi 6 menu kerja + "Lab" (terlipat) untuk fitur lainnya,
+// Mode Fokus (default): untuk tim kecil 1–2 orang. Sidebar jadi 7 menu kerja + "Lab" (terlipat) untuk fitur lainnya,
 // tiap menu kerja punya tab hub (maks. 4) di atas halaman, dan baris tab di dalam halaman dibatasi 3 tab + "Lainnya ▾".
 // Tidak ada fitur yang dihapus: menu lama tetap ada (disembunyikan) supaya badge, Command Palette (Ctrl+K), dan
 // show() di modul lain tetap jalan. Mode lama bisa dinyalakan lagi dari bawah grup Lab.
@@ -12,16 +12,20 @@ const store = {
 };
 const ON = store.get('timai.focus', true) !== false;
 
-// Menu kerja: [kunci, label sidebar, [view, label tab hub]...]. View pertama = tombol sidebar (badge-nya ikut tampil).
+// Menu kerja: [kunci, label sidebar, [view, label tab hub]..., lab?]. View pertama = tombol sidebar (badge-nya ikut tampil).
+// Fitur yang mirip digabung jadi satu menu per tim: Studio (Desain, Video Motion, AI Studio) dan Produk Digital
+// (Launch Lab + agen produk & brand). lab = true → tampil di grup Lab, bukan menu utama.
 const HUBS = [
   ['beranda', 'Beranda', [['today', 'Hari Ini'], ['dashboard', 'Ringkasan']]],
-  ['konten', 'Konten', [['planner', 'Planner'], ['calendar', 'Kalender'], ['compose', 'Buat Post'], ['studio', 'Studio Visual']]],
+  ['konten', 'Konten', [['planner', 'Planner'], ['calendar', 'Kalender'], ['compose', 'Buat Post']]],
+  ['studio', 'Studio', [['studio', 'Desain & Gambar'], ['motion', 'Video Motion'], ['ai', 'AI Studio']]],
   ['iklan', 'Iklan', [['adv', 'Iklan Meta & TikTok'], ['mp', 'Iklan Marketplace'], ['agents-adv', 'Agen & Kalkulator']]],
   ['cs', 'CS', [['inbox', 'Inbox'], ['closer', 'CS AI'], ['cs', 'Tiket & Template']]],
   ['laporan', 'Laporan', [['reports', 'Laporan'], ['analytics', 'Analitik'], ['history', 'Riwayat Post']]],
   ['pengaturan', 'Pengaturan', [['team', 'Brand & Anggota'], ['aikeys', 'AI & API Keys'], ['integrations', 'Integrasi'], ['accounts', 'Akun Sosmed']]],
+  ['produk', 'Produk Digital', [['launch', 'Launch Lab'], ['agents-digital', 'Agen Produk & Brand']], true],
 ];
-const LAB = ['freetools', 'ai', 'brandlab', 'motion', 'launch', 'agents-digital', 'tiktok', 'kol', 'affiliate', 'founder'];
+const LAB = ['freetools', 'tiktok', 'kol', 'affiliate', 'founder'];
 const hubOf = new Map(HUBS.flatMap(([key, , subs]) => subs.map(([v]) => [v, key])));
 const GEAR = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>';
 
@@ -39,7 +43,7 @@ const navBtn = (v) => $(`#nav [data-view="${v}"]`);
 function setupNav() {
   const more = $('#nav-more');
   $$('#nav > .nav-group').forEach((g) => g.remove());
-  HUBS.forEach(([key, label, subs]) => {
+  const placeHub = ([key, label, subs]) => {
     const b = navBtn(subs[0][0]);
     if (!b) return;
     b.dataset.hub = key;
@@ -48,12 +52,14 @@ function setupNav() {
     b.title = label;
     if (key === 'pengaturan') $('.nav-ic', b).innerHTML = GEAR;
     nav.insertBefore(b, more);
-  });
+  };
+  HUBS.filter((h) => !h[3]).forEach(placeHub);
   const lab = document.createElement('span');
   lab.className = 'nav-group';
   lab.dataset.group = 'lab';
   lab.textContent = 'Lab · fitur lainnya';
   nav.insertBefore(lab, more);
+  HUBS.filter((h) => h[3]).forEach(placeHub);
   LAB.forEach((v) => { const b = navBtn(v); if (b) nav.insertBefore(b, more); });
   const classic = document.createElement('button');
   classic.type = 'button';
@@ -170,7 +176,7 @@ if (ON) {
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'focus-switch';
-  back.textContent = '← Kembali ke Mode Fokus (6 menu)';
+  back.textContent = '← Kembali ke Mode Fokus (7 menu)';
   back.addEventListener('click', () => { store.set('timai.focus', true); location.reload(); });
   nav.insertBefore(back, $('#nav-more'));
 }
