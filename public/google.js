@@ -74,7 +74,7 @@ async function drawGoogleLogin() {
   }
   let c;
   try { c = await api('/api/google-login'); } catch (ex) { box.innerHTML = `<div class="check bad">${esc(ex.message)}</div>`; return; }
-  const on = c.client_id && c.secret_hint;
+  const on = !!c.client_id;
   box.innerHTML = `<div class="row-between"><div class="label">Masuk dengan Google</div><span class="pill ${on ? 'ok' : ''}">${on ? 'Aktif' : 'Belum aktif'}</span></div>
     <p class="hint">Tiap anggota login pakai akun Google-nya sendiri (email diisi di <b>Edit</b> anggota). Akun Google yang sama dipakai untuk Gemini: gambar, video, suara, dan ide/script.</p>
     <details ${on ? '' : 'open'}><summary class="hint">Cara mengaktifkan (sekali saja, ±5 menit)</summary>
@@ -84,18 +84,17 @@ async function drawGoogleLogin() {
         <li>Authorized JavaScript origins: <code>${esc(c.origin)}</code></li>
         <li>Authorized redirect URIs: <code>${esc(c.redirect_uri)}</code></li>
         <li>Di <b>Audience</b>, set <b>In production</b> (atau tambahkan email tim sebagai test user).</li>
-        <li>Salin Client ID & Client secret ke bawah, lalu Simpan.</li>
+        <li>Salin Client ID ke bawah, lalu Simpan. Client secret tidak diperlukan.</li>
       </ol></details>
     <form id="gl-form" class="form-grid">
       <div class="span-2"><label class="label" for="gl-owner">Email Google pemilik</label><input id="gl-owner" type="email" value="${esc(c.owner_email)}" placeholder="nama@gmail.com"></div>
       <div class="span-2"><label class="label" for="gl-id">Client ID</label><input id="gl-id" value="${esc(c.client_id)}" ${c.from_env ? 'disabled' : ''} placeholder="xxxx.apps.googleusercontent.com" autocomplete="off"></div>
-      <div class="span-2"><label class="label" for="gl-secret">Client secret ${c.secret_hint ? `<span class="hint">(tersimpan ${esc(c.secret_hint)}, kosongkan kalau tidak diganti)</span>` : ''}</label><input id="gl-secret" type="password" ${c.from_env ? 'disabled' : ''} autocomplete="off"></div>
       <div class="span-2 btn-row"><button class="primary" type="submit">Simpan</button></div>
     </form>`;
   box.querySelector('#gl-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const body = { owner_email: box.querySelector('#gl-owner').value };
-    if (!c.from_env) Object.assign(body, { client_id: box.querySelector('#gl-id').value, client_secret: box.querySelector('#gl-secret').value });
+    if (!c.from_env) body.client_id = box.querySelector('#gl-id').value;
     try {
       await api('/api/google-login', json('PUT', body));
       await S.loadMe?.();

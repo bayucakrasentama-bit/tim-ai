@@ -37,7 +37,23 @@
     const form = document.getElementById('login-form');
     const err = document.getElementById('login-error');
     const params = new URLSearchParams(location.search);
-    if (params.get('error')) { err.textContent = params.get('error'); err.hidden = false; }
+    const showError = (msg) => { err.textContent = msg; err.hidden = false; };
+    if (params.get('error')) showError(params.get('error'));
+    // Balik dari Google: id_token ada di fragment URL. Kirim ke server, lalu hapus dari address bar.
+    const hash = new URLSearchParams(location.hash.slice(1));
+    if (hash.get('id_token') || hash.get('error')) {
+      history.replaceState(null, '', location.pathname + location.search);
+      if (hash.get('error')) showError('Login Google dibatalkan.');
+      else {
+        fetch('/api/auth/google/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_token: hash.get('id_token'), state: hash.get('state') }) })
+          .then(async (r) => {
+            const b = await r.json().catch(() => ({}));
+            if (r.ok) location.href = /^\/(?!\/)[\w\-./]*$/.test(b.next || '') ? b.next : '/';
+            else showError(b.error || 'Gagal masuk dengan Google');
+          })
+          .catch(() => showError('Gagal menghubungi server'));
+      }
+    }
     if (params.get('next')) document.getElementById('google-login').href = `/api/auth/google?next=${encodeURIComponent(params.get('next'))}`;
     fetch('/api/auth/google/config').then((r) => r.json()).then((c) => {
       if (!c.enabled) return;
