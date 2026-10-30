@@ -1,5 +1,5 @@
 // AI Hub: halaman "AI & API Keys" (BYOK + model default), Model Picker, dan tab AI Studio baru:
-// Playground, Arena (bandingkan 2–3 model), Gambar, Video, Suara. Studio Visual ikut dapat tab "Generate AI".
+// Playground, Arena (bandingkan 2–3 model), Gambar, Video, Suara. Prompt Builder di Studio mengirim prompt ke tab Gambar.
 const S = window.siarin;
 const { api, esc, toast, state } = S;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -333,30 +333,6 @@ function ensureAiTabs() {
   }, true);
 }
 
-// Studio Visual: tab "Generate AI" (gambar & video langsung di web).
-function ensureStudioTab() {
-  const tabs = $('#studio-tabs');
-  if (!tabs || tabs.querySelector('[data-studio=gen]')) return;
-  tabs.insertAdjacentHTML('beforeend', '<button data-studio="gen">✨ Generate AI</button>');
-  $('#studio-lp').insertAdjacentHTML('afterend', '<div id="studio-gen" hidden><div class="tabs" id="sg-kind"><button data-sg="image" class="active">Gambar</button><button data-sg="video">Video</button></div><div class="card" id="sg-panel"></div><div id="sg-output"></div></div>');
-  const open = async (kind) => {
-    document.querySelectorAll('#sg-kind button').forEach((b) => b.classList.toggle('active', b.dataset.sg === kind));
-    await loadHub();
-    await tabMedia(kind, $('#sg-panel'), $('#sg-output'));
-  };
-  tabs.addEventListener('click', (e) => {
-    const t = e.target.dataset.studio;
-    if (!t) return;
-    $('#studio-gen').hidden = t !== 'gen';
-    if (t === 'gen') {
-      document.querySelectorAll('#studio-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.studio === 'gen'));
-      $('#studio-tools').hidden = true;
-      $('#studio-lp').hidden = true;
-      open('image').catch((ex) => toast(ex.message));
-    }
-  });
-  $('#sg-kind').addEventListener('click', (e) => { if (e.target.dataset.sg) open(e.target.dataset.sg).catch((ex) => toast(ex.message)); });
-}
 
 // Aksi umum di hasil AI.
 document.addEventListener('click', async (e) => {
@@ -379,7 +355,4 @@ bindKeysPage();
 S.viewHooks.aikeys = () => drawKeys().catch((ex) => toast(ex.message));
 const prevAi = S.viewHooks.ai;
 S.viewHooks.ai = () => { ensureAiTabs(); prevAi?.(); };
-const prevStudio = S.viewHooks.studio;
-S.viewHooks.studio = () => { ensureStudioTab(); prevStudio?.(); };
-ensureStudioTab();
 window.timHub = { loadHub, pickerHtml, bindPicker, pickerValue };

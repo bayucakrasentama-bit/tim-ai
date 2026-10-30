@@ -161,22 +161,35 @@ function renderBuilder(root, ctx = {}) {
     if (e.target.closest('[data-sb-save]')) saveToCard(ctx, `[Studio · ${tool.name} · ${builderState.ratio || tool.ratio}]\n${out.value}`);
   };
 }
-// Kirim ke tab "✨ Generate AI" bawaan (ai-hub.js): isi prompt + rasio setelah panelnya tergambar.
+// Kirim ke tab "Gambar" di AI Studio (ai-hub.js; satu menu Studio dengan halaman ini): isi prompt + rasio setelah panelnya tergambar.
 function sendToGenerate(prompt, ratio) {
-  const btn = $('#studio-tabs [data-studio=gen]');
-  if (!btn) return S.toast('Tab Generate AI belum tersedia');
-  btn.click();
+  S.show('ai');
+  // AI Studio menggambar tab default-nya setelah status AI dari server datang; pindah ke Gambar sesudah itu.
+  const panel = $('#ai-panel');
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    obs.disconnect();
+    clearTimeout(timer);
+    const btn = $('#ai-tabs [data-hub=image]');
+    if (!btn) return S.toast('Tab Gambar di AI Studio belum tersedia');
+    btn.click();
+    setTimeout(fill, 100);
+  };
+  const obs = new MutationObserver(go);
+  if (panel) obs.observe(panel, { childList: true });
+  const timer = setTimeout(go, 2500);
   let n = 0;
   const fill = () => {
     const p = $('#md-prompt');
-    if (!p) { if (n++ < 40) setTimeout(fill, 150); else S.toast('Generate AI butuh API key gambar (Pengaturan → AI & API Keys)'); return; }
+    if (!p) { if (n++ < 40) setTimeout(fill, 150); else S.toast('AI Studio → Gambar butuh API key gambar (Pengaturan → AI & API Keys)'); return; }
     p.value = prompt;
     const a = $('#md-aspect');
     if (a && [...a.options].some((o) => o.value === ratio || o.text === ratio)) a.value = ratio;
     p.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    S.toast('Prompt dipindah ke Generate AI. Pilih model lalu klik Generate.');
+    S.toast('Prompt dipindah ke AI Studio → Gambar. Pilih model lalu klik Generate.');
   };
-  setTimeout(fill, 100);
 }
 async function saveToCard(ctx, note) {
   if (ctx.card) {
@@ -370,7 +383,7 @@ if (studioTabs) {
   const host = document.createElement('div');
   host.id = 'studio-builder';
   $('#studio-tools').before(host);
-  const panes = () => ['#studio-tools', '#studio-lp', '#studio-gen'].map((s) => $(s)).filter(Boolean);
+  const panes = () => ['#studio-tools', '#studio-lp'].map((s) => $(s)).filter(Boolean);
   const openBuilder = () => {
     $$('button', studioTabs).forEach((b) => b.classList.toggle('active', b.dataset.studio === 'builder'));
     panes().forEach((p) => { p.hidden = true; });
@@ -388,7 +401,8 @@ if (studioTabs) {
   $('#studio-tools .hint')?.insertAdjacentHTML('afterbegin', '<b>Studio klasik</b> (app terpisah). Versi baru yang terhubung ke Planner ada di tab <b>12 Tool · Prompt Builder</b>. ');
   const baseStudio = S.viewHooks.studio;
   S.viewHooks.studio = () => {
-    if (store.get('timai.studioTab', 'builder') === 'builder') openBuilder(); else baseStudio?.();
+    // 'gen' = tab Generate AI lama (sekarang AI Studio → Gambar).
+    if (['builder', 'gen'].includes(store.get('timai.studioTab', 'builder'))) openBuilder(); else baseStudio?.();
   };
   if ($('#view-studio')?.classList.contains('active')) S.viewHooks.studio();
 }
