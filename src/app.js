@@ -28,6 +28,7 @@ import { oauthRoutes } from './oauth.js';
 import { guides } from './guides.js';
 import { adsRoutes, syncStaleAds } from './ads.js';
 import { growthRoutes } from './growth.js';
+import { freeToolRoutes } from './free-tools.js';
 import { partnerRoutes } from './partners.js';
 import { partnerToolRoutes, refreshTrackedPosts } from './partner-tools.js';
 import { lpRoutes, lpPublicRoute } from './lp-builder.js';
@@ -171,6 +172,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   launchRoutes(app, db, scope);
   adsRoutes(app, db);
   growthRoutes(app, db, scope);
+  freeToolRoutes(app);
   partnerToolRoutes(app, db);
   partnerRoutes(app, db);
   lpRoutes(app, db, scope);

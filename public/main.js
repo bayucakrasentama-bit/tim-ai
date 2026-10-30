@@ -24,6 +24,7 @@ import './store.js';
 import './agents.js';
 import './cs-closer.js';
 import './today.js';
+import './free-tools.js';
 import './focus.js';
 import './icons.js';
 import './shell.js';
