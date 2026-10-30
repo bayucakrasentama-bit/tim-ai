@@ -1,4 +1,4 @@
-// Mode Fokus (default): untuk tim kecil 1–2 orang. Sidebar jadi 7 menu kerja + "Lab" (terlipat) untuk fitur lainnya,
+// Mode Fokus (default): untuk tim kecil 1–2 orang. Sidebar jadi satu menu kerja per tim + "Lab" (terlipat) untuk fitur lainnya,
 // tiap menu kerja punya tab hub (maks. 4) di atas halaman, dan baris tab di dalam halaman dibatasi 3 tab + "Lainnya ▾".
 // Tidak ada fitur yang dihapus: menu lama tetap ada (disembunyikan) supaya badge, Command Palette (Ctrl+K), dan
 // show() di modul lain tetap jalan. Mode lama bisa dinyalakan lagi dari bawah grup Lab.
@@ -13,21 +13,24 @@ const store = {
 const ON = store.get('timai.focus', true) !== false;
 
 // Menu kerja: [kunci, label sidebar, [view, label tab hub]..., lab?]. View pertama = tombol sidebar (badge-nya ikut tampil).
-// Fitur yang mirip digabung jadi satu menu per tim: Studio (Desain, Video Motion, AI Studio) dan Produk Digital
-// (Launch Lab + agen produk & brand), Kreator & KOL (KOL, Affiliate, Scraper TikTok), Kantor AI di Beranda.
+// Satu menu per tim; sidebar tiap orang hanya menampilkan menu timnya (applyTeamNav di app.js). Fitur yang mirip
+// digabung jadi tab, dan tiap menu tim punya tab "Tools" (Free Tools khusus tim itu, free-tools.js).
 // lab = true → tampil di grup Lab, bukan menu utama.
 const HUBS = [
-  ['beranda', 'Beranda', [['today', 'Hari Ini'], ['dashboard', 'Ringkasan'], ['founder', 'Kantor AI']]],
-  ['konten', 'Konten', [['planner', 'Planner'], ['calendar', 'Kalender'], ['compose', 'Buat Post']]],
-  ['studio', 'Studio', [['studio', 'Desain & Gambar'], ['motion', 'Video Motion'], ['ai', 'AI Studio']]],
-  ['iklan', 'Iklan', [['adv', 'Iklan Meta & TikTok'], ['mp', 'Iklan Marketplace'], ['agents-adv', 'Agen & Kalkulator']]],
-  ['cs', 'CS', [['inbox', 'Inbox'], ['closer', 'CS AI'], ['cs', 'Tiket & Template']]],
-  ['laporan', 'Laporan', [['reports', 'Laporan'], ['analytics', 'Analitik'], ['history', 'Riwayat Post']]],
+  ['beranda', 'Beranda', [['today', 'Hari Ini'], ['dashboard', 'Ringkasan'], ['founder', 'Kantor AI'], ['tools-founder', 'Tools']]],
+  ['konten', 'Konten', [['planner', 'Planner'], ['calendar', 'Kalender'], ['compose', 'Buat Post'], ['tools-medsos', 'Tools Medsos']]],
+  ['studio', 'Studio', [['studio', 'Desain & Gambar'], ['motion', 'Video Motion'], ['ai', 'AI Studio'], ['tools-konten', 'Tools Konten']]],
+  ['produk', 'Produk Digital', [['launch', 'Launch Lab'], ['agents-digital', 'Agen Produk & Brand'], ['tools-digital', 'Tools']]],
+  ['iklan', 'Iklan', [['adv', 'Iklan Meta & TikTok'], ['mp', 'Iklan Marketplace'], ['agents-adv', 'Agen & Kalkulator'], ['tools-iklan', 'Tools']]],
+  ['kol', 'KOL', [['kol', 'KOL & Influencer'], ['tools-kol', 'Tools']]],
+  ['affiliate', 'Affiliate', [['affiliate', 'Kreator Affiliate'], ['tools-affiliate', 'Tools']]],
+  ['cs', 'CS', [['inbox', 'Inbox'], ['closer', 'CS AI'], ['cs', 'Tiket & Template'], ['tools-cs', 'Tools']]],
+  ['laporan', 'Laporan', [['reports', 'Laporan'], ['analytics', 'Analitik'], ['history', 'Riwayat Post'], ['tiktok', 'Riset TikTok']]],
   ['pengaturan', 'Pengaturan', [['team', 'Brand & Anggota'], ['aikeys', 'AI & API Keys'], ['integrations', 'Integrasi'], ['accounts', 'Akun Sosmed']]],
-  ['produk', 'Produk Digital', [['launch', 'Launch Lab'], ['agents-digital', 'Agen Produk & Brand']], true],
-  ['kreator', 'Kreator & KOL', [['kol', 'KOL & Influencer'], ['affiliate', 'Affiliate'], ['tiktok', 'Scraper TikTok']], true],
 ];
-const LAB = ['freetools'];
+const LAB = [];
+// Tidak tampil di sidebar Mode Fokus (isinya sudah ada di tab tim), tetap bisa dibuka lewat Ctrl+K / show().
+const HIDDEN = ['freetools'];
 const hubOf = new Map(HUBS.flatMap(([key, , subs]) => subs.map(([v]) => [v, key])));
 const GEAR = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>';
 
@@ -56,12 +59,15 @@ function setupNav() {
     nav.insertBefore(b, more);
   };
   HUBS.filter((h) => !h[3]).forEach(placeHub);
-  const lab = document.createElement('span');
-  lab.className = 'nav-group';
-  lab.dataset.group = 'lab';
-  lab.textContent = 'Lab · fitur lainnya';
-  nav.insertBefore(lab, more);
+  if (LAB.length || HUBS.some((h) => h[3])) {
+    const lab = document.createElement('span');
+    lab.className = 'nav-group';
+    lab.dataset.group = 'lab';
+    lab.textContent = 'Lab · fitur lainnya';
+    nav.insertBefore(lab, more);
+  }
   HUBS.filter((h) => h[3]).forEach(placeHub);
+  HIDDEN.forEach((v) => { const b = navBtn(v); if (b) { b.classList.add('focus-hidden'); nav.append(b); } });
   LAB.forEach((v) => { const b = navBtn(v); if (b) nav.insertBefore(b, more); });
   const classic = document.createElement('button');
   classic.type = 'button';
@@ -178,7 +184,7 @@ if (ON) {
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'focus-switch';
-  back.textContent = '← Kembali ke Mode Fokus (7 menu)';
+  back.textContent = '← Kembali ke Mode Fokus';
   back.addEventListener('click', () => { store.set('timai.focus', true); location.reload(); });
   nav.insertBefore(back, $('#nav-more'));
 }

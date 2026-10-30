@@ -1239,63 +1239,80 @@ const TEAM_OF = {
 };
 const teamsOf = (id) => (TEAM_OF[id] || '').split(' ').filter(Boolean);
 const myTeam = () => (TEAMS[state.me?.user.team] ? state.me.user.team : 'all');
-const ui = { q: '', team: null, cat: 'all', open: null };
-function card([id, name, cat, desc]) {
-  return `<button class="ft-card" data-ft-open="${id}"><span class="ft-cat ${cat}">${CATS[cat]}</span><b>${esc(name)}</b><span class="hint">${esc(desc)}</span>
-    <span class="ft-teams">${teamsOf(id).map((t) => `<span class="${t === ui.team ? 'on' : ''}">${TEAMS[t]}</span>`).join('')}</span></button>`;
-}
-function drawCatalog() {
-  const root = $('#view-freetools');
-  ui.team ??= myTeam();
-  const q = ui.q.toLowerCase();
-  const byTeam = TOOLS.filter((t) => ui.team === 'all' || teamsOf(t[0]).includes(ui.team));
-  const list = byTeam.filter((t) => (ui.cat === 'all' || t[2] === ui.cat) && (!q || `${t[1]} ${t[3]}`.toLowerCase().includes(q)));
-  // Dikelompokkan per jenis alat supaya tiap tim melihat rincian tools-nya.
-  const groups = Object.keys(CATS).map((c) => [c, list.filter((t) => t[2] === c)]).filter(([, l]) => l.length);
+// Tab "Tools" di menu tiap tim (Mode Fokus): katalog yang sama, dikunci ke tim itu. Menu Free Tools lengkap tetap ada.
+const TEAM_PAGES = {
+  'tools-konten': ['Tools Konten', ['konten']], 'tools-medsos': ['Tools Medsos', ['medsos']], 'tools-digital': ['Tools Digital', ['digital']],
+  'tools-iklan': ['Tools ADV & MP', ['adv', 'mp']], 'tools-kol': ['Tools KOL', ['kol']], 'tools-affiliate': ['Tools Affiliate', ['affiliate']],
+  'tools-cs': ['Tools CS', ['cs']], 'tools-founder': ['Tools Founder', ['founder']],
+};
+
+// Satu katalog per halaman. fixed = daftar tim yang dikunci (halaman tab tim); kosong = halaman Free Tools lengkap.
+function mountCatalog(view, title, fixed = null) {
+  const root = $(`#view-${view}`);
+  const ui = { q: '', team: fixed ? null : undefined, cat: 'all', open: null };
+  const key = `timai.freetool.${view}`;
+  const inTeam = (t) => (fixed ? teamsOf(t[0]).some((x) => fixed.includes(x)) : ui.team === 'all' || teamsOf(t[0]).includes(ui.team));
+  const card = ([id, name, cat, desc]) => `<button class="ft-card" data-ft-open="${id}"><span class="ft-cat ${cat}">${CATS[cat]}</span><b>${esc(name)}</b><span class="hint">${esc(desc)}</span>
+    <span class="ft-teams">${teamsOf(id).map((t) => `<span class="${t === ui.team || fixed?.includes(t) ? 'on' : ''}">${TEAMS[t]}</span>`).join('')}</span></button>`;
   const chip = (attr, k, l, n, active) => `<button data-${attr}="${k}" class="${active ? 'active' : ''}">${l} <span class="ft-n">${n}</span></button>`;
-  root.innerHTML = `<div class="page-head"><div><h1>Free Tools</h1><p class="hint">${TOOLS.filter((t) => t[2] !== 'na').length} alat siap pakai, dikelompokkan per tim yang memakainya. Hampir semuanya diproses di browser kamu.</p></div></div>
-    <input class="ft-search" type="search" placeholder="Cari alat… (mis. hashtag, resize, UTM)" value="${esc(ui.q)}" data-ft-search>
-    <div class="label">Tim</div>
-    <div class="ft-chips">${chip('ft-team', 'all', 'Semua tim', TOOLS.length, ui.team === 'all')}${Object.entries(TEAMS).map(([k, l]) => chip('ft-team', k, `${l}${k === myTeam() ? ' (timku)' : ''}`, TOOLS.filter((t) => teamsOf(t[0]).includes(k)).length, ui.team === k)).join('')}</div>
-    <div class="ft-chips small">${chip('ft-cat', 'all', 'Semua jenis', byTeam.length, ui.cat === 'all')}${Object.entries(CATS).map(([k, l]) => [k, l, byTeam.filter((t) => t[2] === k).length]).filter(([, , n]) => n).map(([k, l, n]) => chip('ft-cat', k, l, n, ui.cat === k)).join('')}</div>
-    ${groups.map(([c, l]) => `<div class="ft-group"><h3>${CATS[c]} <span class="hint">${l.length}</span></h3><div class="ft-grid">${l.map(card).join('')}</div></div>`).join('') || '<p class="hint">Tidak ada alat yang cocok.</p>'}`;
-}
-function openTool(id) {
-  const t = TOOLS.find((x) => x[0] === id);
-  if (!t) return drawCatalog();
-  ui.open = id;
-  const root = $('#view-freetools');
-  root.innerHTML = `<div class="page-head"><div><button class="ghost small" data-ft-back>← Semua tools</button><h1>${esc(t[1])}</h1><p class="hint">${esc(t[3])}</p></div></div><div class="card ft-body"></div>`;
-  const body = $('.ft-body', root);
-  if (typeof t[4] === 'function') Promise.resolve(t[4](body)).catch((ex) => { body.innerHTML = `<div class="check bad">${esc(ex.message)}</div>`; });
-  else body.innerHTML = `<div class="check">${esc(t[4].note)}</div>${t[4].go ? `<button class="primary" data-ft-go="${t[4].go}">Buka menu terkait</button>` : ''}`;
-  try { localStorage.setItem('timai.freetool', id); } catch { /* mode privat */ }
+  function drawCatalog() {
+    if (!fixed) ui.team ??= myTeam();
+    const q = ui.q.toLowerCase();
+    const byTeam = TOOLS.filter(inTeam);
+    const list = byTeam.filter((t) => (ui.cat === 'all' || t[2] === ui.cat) && (!q || `${t[1]} ${t[3]}`.toLowerCase().includes(q)));
+    // Dikelompokkan per jenis alat supaya tiap tim melihat rincian tools-nya.
+    const groups = Object.keys(CATS).map((c) => [c, list.filter((t) => t[2] === c)]).filter(([, l]) => l.length);
+    root.innerHTML = `<div class="page-head"><div><h1>${esc(title)}</h1><p class="hint">${fixed
+      ? `${byTeam.filter((t) => t[2] !== 'na').length} alat untuk ${fixed.map((t) => `Tim ${TEAMS[t]}`).join(' & ')}. Hampir semuanya diproses di browser kamu.`
+      : `${TOOLS.filter((t) => t[2] !== 'na').length} alat siap pakai, dikelompokkan per tim yang memakainya. Hampir semuanya diproses di browser kamu.`}</p></div></div>
+      <input class="ft-search" type="search" placeholder="Cari alat… (mis. hashtag, resize, UTM)" value="${esc(ui.q)}" data-ft-search>
+      ${fixed ? '' : `<div class="label">Tim</div>
+      <div class="ft-chips">${chip('ft-team', 'all', 'Semua tim', TOOLS.length, ui.team === 'all')}${Object.entries(TEAMS).map(([k, l]) => chip('ft-team', k, `${l}${k === myTeam() ? ' (timku)' : ''}`, TOOLS.filter((t) => teamsOf(t[0]).includes(k)).length, ui.team === k)).join('')}</div>`}
+      <div class="ft-chips small">${chip('ft-cat', 'all', 'Semua jenis', byTeam.length, ui.cat === 'all')}${Object.entries(CATS).map(([k, l]) => [k, l, byTeam.filter((t) => t[2] === k).length]).filter(([, , n]) => n).map(([k, l, n]) => chip('ft-cat', k, l, n, ui.cat === k)).join('')}</div>
+      ${groups.map(([c, l]) => `<div class="ft-group"><h3>${CATS[c]} <span class="hint">${l.length}</span></h3><div class="ft-grid">${l.map(card).join('')}</div></div>`).join('') || '<p class="hint">Tidak ada alat yang cocok.</p>'}`;
+  }
+  function openTool(id) {
+    const t = TOOLS.find((x) => x[0] === id);
+    if (!t) return drawCatalog();
+    ui.open = id;
+    root.innerHTML = `<div class="page-head"><div><button class="ghost small" data-ft-back>← ${esc(title)}</button><h1>${esc(t[1])}</h1><p class="hint">${esc(t[3])}</p></div></div><div class="card ft-body"></div>`;
+    const body = $('.ft-body', root);
+    if (typeof t[4] === 'function') Promise.resolve(t[4](body)).catch((ex) => { body.innerHTML = `<div class="check bad">${esc(ex.message)}</div>`; });
+    else body.innerHTML = `<div class="check">${esc(t[4].note)}</div>${t[4].go ? `<button class="primary" data-ft-go="${t[4].go}">Buka menu terkait</button>` : ''}`;
+    try { localStorage.setItem(key, id); } catch { /* mode privat */ }
+  }
+  root.addEventListener('click', (e) => {
+    const d = e.target.closest('[data-ft-open],[data-ft-back],[data-ft-cat],[data-ft-team],[data-ft-go],[data-ft-copy],[data-ft-copyval]')?.dataset || {};
+    if (d.ftOpen) { openTool(d.ftOpen); window.scrollTo(0, 0); }
+    if (d.ftBack !== undefined) { ui.open = null; try { localStorage.removeItem(key); } catch { /* mode privat */ } drawCatalog(); }
+    if (d.ftCat) { ui.cat = d.ftCat; drawCatalog(); }
+    if (d.ftTeam) { ui.team = d.ftTeam; ui.cat = 'all'; drawCatalog(); }
+    if (d.ftGo) S.show(d.ftGo);
+    const copy = d.ftCopyval ?? (d.ftCopy !== undefined ? e.target.closest('.ft-copy')?.querySelector('textarea')?.value : null);
+    if (copy != null) navigator.clipboard.writeText(copy).then(() => toast('Disalin ✓'), () => toast('Gagal menyalin'));
+  });
+  root.addEventListener('input', (e) => {
+    if (e.target.dataset.ftSearch === undefined) return;
+    ui.q = e.target.value;
+    const pos = e.target.selectionStart;
+    drawCatalog();
+    const s = $('[data-ft-search]', root);
+    s.focus();
+    s.setSelectionRange(pos, pos);
+  });
+  S.viewHooks[view] = () => {
+    if (ui.open) return;
+    let last = null;
+    try { last = localStorage.getItem(key); } catch { /* mode privat */ }
+    if (last && TOOLS.some((t) => t[0] === last && inTeam(t))) openTool(last);
+    else drawCatalog();
+  };
 }
 
-const root = $('#view-freetools');
-root.addEventListener('click', (e) => {
-  const d = e.target.closest('[data-ft-open],[data-ft-back],[data-ft-cat],[data-ft-team],[data-ft-go],[data-ft-copy],[data-ft-copyval]')?.dataset || {};
-  if (d.ftOpen) { openTool(d.ftOpen); window.scrollTo(0, 0); }
-  if (d.ftBack !== undefined) { ui.open = null; try { localStorage.removeItem('timai.freetool'); } catch { /* mode privat */ } drawCatalog(); }
-  if (d.ftCat) { ui.cat = d.ftCat; drawCatalog(); }
-  if (d.ftTeam) { ui.team = d.ftTeam; ui.cat = 'all'; drawCatalog(); }
-  if (d.ftGo) S.show(d.ftGo);
-  const copy = d.ftCopyval ?? (d.ftCopy !== undefined ? e.target.closest('.ft-copy')?.querySelector('textarea')?.value : null);
-  if (copy != null) navigator.clipboard.writeText(copy).then(() => toast('Disalin ✓'), () => toast('Gagal menyalin'));
-});
-root.addEventListener('input', (e) => {
-  if (e.target.dataset.ftSearch === undefined) return;
-  ui.q = e.target.value;
-  const pos = e.target.selectionStart;
-  drawCatalog();
-  const s = $('[data-ft-search]', root);
-  s.focus();
-  s.setSelectionRange(pos, pos);
-});
-S.viewHooks.freetools = () => {
-  if (ui.open) return;
-  let last = null;
-  try { last = localStorage.getItem('timai.freetool'); } catch { /* mode privat */ }
-  if (last && TOOLS.some((t) => t[0] === last)) openTool(last);
-  else drawCatalog();
-};
+const freeSection = $('#view-freetools');
+for (const [view, [title, teams]] of Object.entries(TEAM_PAGES)) {
+  freeSection.insertAdjacentHTML('afterend', `<section id="view-${view}" class="view"></section>`);
+  mountCatalog(view, title, teams);
+}
+mountCatalog('freetools', 'Free Tools');
+window.timFreeTools = { pages: TEAM_PAGES };
