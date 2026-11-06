@@ -403,9 +403,11 @@ const REPORT_TEAMS = ['adv', 'mp', 'medsos', 'konten', 'digital', 'kol', 'affili
 const fo = { tab: 'conductor', plan: null, busy: false, brief: '' };
 function renderFounder() {
   const root = document.getElementById('view-founder');
-  root.innerHTML = `<div class="row-between"><h1>Kantor AI</h1><span class="tag">Tim Founder</span></div>
-    <p class="hint"><b>Tim Founder</b> (owner / manajer): perintah dalam bahasa biasa ke <b>Conductor</b>, kantor virtual berisi semua agen AI, keuangan iklan vs omzet, laporan pagi otomatis ke WhatsApp/Telegram, dan struktur tim.</p>
-    <div class="tabs">${[['conductor', 'Conductor'], ['office', 'Kantor Virtual'], ['finance', 'Keuangan'], ['brief', 'Laporan Pagi'], ['org', 'Struktur Tim']].map(([k, l]) => `<button data-fo-tab="${k}" class="${fo.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div>
+  const financeOnly = S.state.me?.user.team === 'keuangan' && !['owner', 'admin'].includes(S.state.me?.user.role);
+  if (financeOnly) fo.tab = 'finance';
+  root.innerHTML = `<div class="row-between"><h1>${financeOnly ? 'Tim Keuangan' : 'Kantor AI'}</h1><span class="tag">${financeOnly ? 'Tim Keuangan' : 'Tim Founder'}</span></div>
+    <p class="hint">${financeOnly ? 'Pantau iklan vs omzet dan ringkasan keuangan per brand.' : '<b>Tim Founder</b> (owner / manajer): perintah dalam bahasa biasa ke <b>Conductor</b>, kantor virtual berisi semua agen AI, keuangan iklan vs omzet, laporan pagi otomatis ke WhatsApp/Telegram, dan struktur tim.'}</p>
+    <div class="tabs">${(financeOnly ? [['finance', 'Keuangan']] : [['conductor', 'Conductor'], ['office', 'Kantor Virtual'], ['finance', 'Keuangan'], ['brief', 'Laporan Pagi'], ['org', 'Struktur Tim']]).map(([k, l]) => `<button data-fo-tab="${k}" class="${fo.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div>
     <div data-fo-body></div>`;
   const body = $('[data-fo-body]', root);
   ({ conductor: foConductor, office: foOffice, finance: foFinance, brief: foBrief, org: foOrg })[fo.tab](body);

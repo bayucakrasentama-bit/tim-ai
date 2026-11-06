@@ -1,6 +1,7 @@
-// Hari Ini (beranda Mode Fokus): satu daftar tindakan untuk hari ini, diambil dari Planner, jadwal posting, Inbox,
-// tiket CS, order CS AI, dan vonis iklan 7 hari terakhir. Ceklis "selesai" disimpan per brand per tanggal (store.js),
-// jadi sama di semua laptop. Setiap item punya tombol yang langsung membuka halaman tempat mengerjakannya.
+import { todayAreas, doneKey as scopedDoneKey, teamActions } from './workspace-policy.js';
+// Hari Ini (beranda per tim): daftar tindakan yang relevan dengan user aktif.
+// tiket CS, order CS AI, dan vonis iklan 7 hari terakhir. Ceklis per user+brand+tanggal
+// tersimpan lewat store.js. Setiap item membuka halaman tempat mengerjakannya.
 const S = window.siarin;
 const { api, esc, state } = S;
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -10,22 +11,25 @@ const wib = () => new Date(Date.now() + 7 * 3600e3);
 const today = () => wib().toISOString().slice(0, 10);
 const dayStartUtc = () => new Date(`${today()}T00:00:00+07:00`);
 const view = document.getElementById('view-today');
-const T = { data: null, loading: false, at: 0, brand: null };
-
-const doneKey = () => `today.done.${today()}`;
+const T = { data: null, loading: false, at: 0, brand: null, user: null };
+const profile = () => state.me?.user || { id: 0, team: 'semua', role: 'owner' };
+const activeAreas = () => todayAreas(profile().team, profile().role);
+const doneKey = () => scopedDoneKey(today(), state.brandId, profile().id);
 const done = () => new Set(window.timStore.get(doneKey(), []));
 
 async function collect() {
   const start = dayStartUtc();
   const end = new Date(start.getTime() + 86400e3);
   const safe = (p, d) => p.catch(() => d);
+  const areas = activeAreas();
+  const wants = (area) => areas.includes(area);
   const [content, posts, inbox, tickets, adv, founder] = await Promise.all([
-    safe(api('/api/content'), []),
-    safe(api(`/api/posts?from=${encodeURIComponent(new Date(start.getTime() - 2 * 86400e3).toISOString())}&to=${encodeURIComponent(end.toISOString())}`), []),
-    safe(api('/api/inbox/summary'), null),
-    safe(api('/api/cs/tickets?open=1'), []),
-    safe(api(`/api/reports/team/adv?from=${encodeURIComponent(new Date(Date.now() - 7 * 86400e3).toISOString())}`), null),
-    safe(api('/api/founder/settings'), null),
+    wants('Konten') ? safe(api('/api/content'), []) : [],
+    wants('Konten') ? safe(api(`/api/posts?from=${encodeURIComponent(new Date(start.getTime() - 2 * 86400e3).toISOString())}&to=${encodeURIComponent(end.toISOString())}`), []) : [],
+    wants('CS') ? safe(api('/api/inbox/summary'), null) : null,
+    wants('CS') ? safe(api('/api/cs/tickets?open=1'), []) : [],
+    wants('Iklan') ? safe(api(`/api/reports/team/adv?from=${encodeURIComponent(new Date(Date.now() - 7 * 86400e3).toISOString())}`), null) : null,
+    ['owner', 'admin'].includes(profile().role) || profile().team === 'founder' ? safe(api('/api/founder/settings'), null) : null,
   ]);
   return { content, posts, inbox, tickets, adv, founder, start, end };
 }
@@ -83,28 +87,31 @@ function render() {
     if (!T.loading) load();
     return;
   }
-  const items = build(T.data);
+  const areas = activeAreas();
+  const items = build(T.data).filter((i) => areas.includes(i.area));
+  const actions = teamActions(profile().team, profile().role);
   const dn = done();
   const todo = items.filter((i) => !i.info);
   const finished = todo.filter((i) => dn.has(i.key)).length;
   const date = wib().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   const pctDone = todo.length ? Math.round((finished / todo.length) * 100) : 100;
-  view.innerHTML = `<div class="row-between"><div><h1>Hari Ini</h1><div class="hint">${esc(date)} · ${esc(state.brands.find((b) => b.id === state.brandId)?.name || '')}</div></div>
+  view.innerHTML = `<div class="row-between"><div><h1>${profile().role === 'owner' || profile().role === 'admin' ? 'Hari Ini' : `Ruang Kerja ${esc(S.TEAM_LABEL[profile().team] || profile().team)}`}</h1><div class="hint">${esc(date)} · ${esc(state.brands.find((b) => b.id === state.brandId)?.name || '')} · ${esc(profile().username || '')}</div></div>
       <div class="btn-row"><span class="hint">Diperbarui ${new Date(T.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span><button class="ghost small" data-td-refresh>Muat ulang</button></div></div>
-    <div class="card td-progress"><div class="row-between"><b>${todo.length ? `${finished} dari ${todo.length} tindakan selesai` : 'Tidak ada yang mendesak hari ini 🎉'}</b><span class="hint">${pctDone}%</span></div><div class="pbar"><span style="width:${pctDone}%"></span></div></div>
-    <div class="td-grid">${AREAS.map(([area, icon]) => {
+    <div class="card td-actions"><b>Mulai dari sini</b><div class="td-action-list">${actions.map((a) => `<button type="button" class="ghost" data-td-go="${esc(a.view)}" ${a.tab ? `data-td-tab="${esc(a.tab)}"` : ''}>${esc(a.label)} →</button>`).join('')}</div></div>
+    ${areas.length ? `<div class="card td-progress"><div class="row-between"><b>${todo.length ? `${finished} dari ${todo.length} tindakan selesai` : 'Tidak ada yang mendesak hari ini'}</b><span class="hint">${pctDone}%</span></div><div class="pbar"><span style="width:${pctDone}%"></span></div></div>
+    <div class="td-grid ${areas.length === 1 ? 'td-grid-single' : ''}">${AREAS.filter(([area]) => areas.includes(area)).map(([area, icon]) => {
       const list = items.filter((i) => i.area === area);
       return `<div class="card td-col"><div class="td-head">${icon} <b>${area}</b> <span class="hint">${list.filter((i) => !i.info && !dn.has(i.key)).length} perlu tindakan</span></div>
         ${list.map((i) => `<div class="td-item ${dn.has(i.key) ? 'is-done' : ''} tone-${i.tone}">
           ${i.info ? '<span class="td-dot"></span>' : `<input type="checkbox" data-td-done="${esc(i.key)}" ${dn.has(i.key) ? 'checked' : ''} aria-label="Tandai selesai">`}
           <div class="td-body"><div class="td-title">${esc(i.title)}</div><div class="hint">${esc(i.meta || '')}</div></div>
           <button class="ghost small" data-td-go="${esc(i.go)}" ${i.tab ? `data-td-tab="${esc(i.tab)}"` : ''}>${esc(i.label)} →</button></div>`).join('') || '<p class="hint td-empty">Aman, tidak ada yang perlu dikerjakan.</p>'}</div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>` : '<p class="hint td-empty">Pilih pekerjaan di atas untuk mulai.</p>'}`;
 }
 async function load() {
   T.loading = true;
   const brandId = state.brandId;
-  try { T.data = await collect(); T.at = Date.now(); T.brand = brandId; } finally { T.loading = false; }
+  try { T.data = await collect(); T.at = Date.now(); T.brand = brandId; T.user = profile().id; } finally { T.loading = false; }
   if (view.classList.contains('active')) render();
 }
 
@@ -113,8 +120,16 @@ view.addEventListener('click', (e) => {
   if (!b) return;
   if (b.dataset.tdRefresh !== undefined) { T.data = null; render(); }
   if (b.dataset.tdGo) {
-    if (b.dataset.tdTab && b.dataset.tdGo === 'founder') { S.show('founder'); setTimeout(() => document.querySelector(`#view-founder [data-fo-tab="${b.dataset.tdTab}"]`)?.click(), 50); }
-    else S.show(b.dataset.tdGo);
+    if (b.dataset.tdTab) {
+      S.show(b.dataset.tdGo);
+      const attr = b.dataset.tdGo === 'founder' ? 'data-fo-tab' : 'data-x-tab';
+      let attempts = 0;
+      const open = () => {
+        const tab = document.querySelector(`#view-${b.dataset.tdGo} [${attr}="${b.dataset.tdTab}"]`);
+        if (tab) tab.click(); else if (attempts++ < 20) setTimeout(open, 100);
+      };
+      setTimeout(open, 50);
+    } else S.show(b.dataset.tdGo);
   }
 });
 view.addEventListener('change', (e) => {
@@ -128,6 +143,6 @@ view.addEventListener('change', (e) => {
 
 // Data dimuat ulang setiap kali halaman dibuka (paling cepat tiap 60 detik), ceklis dari store.js.
 S.viewHooks.today = window.timStore.withStore(() => {
-  if (T.data && (Date.now() - T.at > 60_000 || T.brand !== state.brandId)) T.data = null;
+  if (T.data && (Date.now() - T.at > 60_000 || T.brand !== state.brandId || T.user !== profile().id)) T.data = null;
   render();
 });

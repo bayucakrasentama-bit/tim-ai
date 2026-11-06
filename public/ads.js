@@ -66,15 +66,16 @@ async function loadAccounts(team) {
 
 function shell(team) {
   const u = ui[team];
-  const [title, intro] = TITLE[team];
+  const liveOnly = team === 'mp' && state.me?.user.team === 'live' && !['owner', 'admin'].includes(state.me?.user.role);
+  const [title, intro] = liveOnly ? ['Tim Live', 'Jadwal shift dan hasil live bersama per brand.'] : TITLE[team];
   $(`#view-${team}`).innerHTML = `
   <div class="page-head"><div><h1>${title}</h1><p class="hint">${intro}</p></div>
   <div class="btn-row">
     <select data-ads-only aria-label="Brand"><option value="">Semua brand</option>${state.brands.map((b) => `<option value="${b.id}" ${String(b.id) === u.only ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select>
     <select data-ads-days aria-label="Periode">${[[7, '7 hari'], [30, '30 hari'], [90, '90 hari'], [365, '1 tahun']].map(([v, l]) => `<option value="${v}" ${v === u.days ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <button class="ghost" data-ads-import>Impor CSV</button><button class="ghost" data-ads-manual>+ Input manual</button><button class="primary" data-ads-add>+ Akun iklan</button>
+    ${liveOnly ? '' : '<button class="ghost" data-ads-import>Impor CSV</button><button class="ghost" data-ads-manual>+ Input manual</button><button class="primary" data-ads-add>+ Akun iklan</button>'}
   </div></div>
-  <div class="tabs" data-ads-tabs>${(team === 'adv' ? [['summary', 'Ringkasan & Master BCS'], ['testing', 'Kanban Testing Iklan'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'ROAS Gabungan'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']] : [['summary', 'Ringkasan & Master BCS'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'Kesehatan Toko'], ['campaign', 'Kalender Campaign'], ['listing', 'AI Listing & SEO'], ['audit', 'Audit Toko'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']]).map(([k, l]) => `<button data-ads-tab="${k}" class="${k === u.tab ? 'active' : ''}">${l}</button>`).join('')}</div>
+  <div class="tabs" data-ads-tabs>${(liveOnly ? [['live', 'Live Command Center']] : team === 'adv' ? [['summary', 'Ringkasan & Master BCS'], ['testing', 'Kanban Testing Iklan'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'ROAS Gabungan'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']] : [['summary', 'Ringkasan & Master BCS'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'Kesehatan Toko'], ['campaign', 'Kalender Campaign'], ['listing', 'AI Listing & SEO'], ['audit', 'Audit Toko'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']]).map(([k, l]) => `<button data-ads-tab="${k}" ${liveOnly ? 'data-x-tab="live"' : ''} class="${k === u.tab ? 'active' : ''}">${l}</button>`).join('')}</div>
   <div data-ads-body><div class="spinner"></div></div>`;
 }
 
@@ -95,6 +96,7 @@ async function autoSync(team, accounts, body) {
 
 async function draw(team) {
   const u = ui[team];
+  if (team === 'mp' && state.me?.user.team === 'live' && !['owner', 'admin'].includes(state.me?.user.role)) u.tab = 'live';
   shell(team);
   const body = $(`#view-${team} [data-ads-body]`);
   const { platforms, accounts } = await loadAccounts(team);

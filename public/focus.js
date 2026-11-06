@@ -3,6 +3,7 @@
 // Tidak ada fitur yang dihapus: menu lama tetap ada (disembunyikan) supaya badge, Command Palette (Ctrl+K), dan
 // show() di modul lain tetap jalan. Mode lama bisa dinyalakan lagi dari bawah grup Lab.
 // Harus dimuat setelah semua modul (ikon menu dari app.js sudah terpasang) dan sebelum shell.js (grup sidebar).
+import { visibleViews } from './workspace-policy.js';
 const S = window.siarin;
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -44,6 +45,9 @@ const MAX_TABS = 4;
 
 const nav = $('#nav');
 const navBtn = (v) => $(`#nav [data-view="${v}"]`);
+// Tombol hub memakai gabungan tim; filter tab memakai tim asli masing-masing view.
+const viewTeams = new Map($$('#nav [data-view]').map((b) => [b.dataset.view, b.dataset.team || '']));
+const allowedTabs = (subs) => visibleViews(subs, S.state.me?.user.team || 'semua', S.state.me?.user.role || 'owner', (v) => viewTeams.get(v));
 
 function setupNav() {
   const more = $('#nav-more');
@@ -88,10 +92,13 @@ function setupNav() {
   nav.addEventListener('click', (e) => {
     const b = e.target.closest('[data-hub]');
     if (!b || !e.isTrusted) return;
+    const hub = HUBS.find(([key]) => key === b.dataset.hub);
+    const allowed = allowedTabs(hub?.[2] || []).map(([v]) => v);
     const last = store.get('timai.focus.last', {})[b.dataset.hub];
-    if (last && last !== b.dataset.view && document.getElementById(`view-${last}`)) {
+    const target = allowed.includes(last) ? last : allowed[0];
+    if (target && target !== b.dataset.view && document.getElementById(`view-${target}`)) {
       e.stopPropagation();
-      S.show(last);
+      S.show(target);
     }
   }, true);
 }
@@ -107,14 +114,25 @@ function syncHub(view) {
   const hub = HUBS.find(([k]) => k === key);
   $$('#nav [data-hub]').forEach((b) => b.classList.toggle('active', b.dataset.hub === key));
   if (key) { const last = store.get('timai.focus.last', {}); if (last[key] !== view) store.set('timai.focus.last', { ...last, [key]: view }); }
-  if (!hub || hub[2].length < 2) { bar.hidden = true; return; }
+  if (!hub || allowedTabs(hub[2]).filter(([v]) => document.getElementById(`view-${v}`)).length < 2) { bar.hidden = true; return; }
   bar.hidden = false;
-  const html = hub[2].filter(([v]) => document.getElementById(`view-${v}`)).map(([v, l]) => {
+  const html = allowedTabs(hub[2]).filter(([v]) => document.getElementById(`view-${v}`)).map(([v, l]) => {
     const badge = navBtn(v)?.querySelector('.nav-badge:not([hidden])')?.textContent;
     return `<button type="button" data-hub-view="${v}" class="${v === view ? 'active' : ''}">${l}${badge ? `<span class="hub-badge">${badge}</span>` : ''}</button>`;
   }).join('');
   if (bar.innerHTML !== html) bar.innerHTML = html;
 }
+document.addEventListener('timai:profile-ready', () => {
+  const role = S.state.me?.user.role;
+  if (role !== 'owner' && role !== 'admin') {
+    if (!ON) { store.set('timai.focus', true); location.reload(); return; }
+    $('#nav-more').hidden = true;
+    nav.classList.remove('show-all');
+    $('.focus-switch')?.remove();
+  }
+  const active = $('.view.active')?.id.replace('view-', '');
+  if (active) syncHub(active);
+});
 bar.addEventListener('click', (e) => { const v = e.target.closest('[data-hub-view]')?.dataset.hubView; if (v) S.show(v); });
 
 // Batasi baris tab di dalam halaman: sisanya masuk menu "Lainnya" di dalam baris yang sama,

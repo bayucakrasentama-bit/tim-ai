@@ -19,7 +19,7 @@ const fmtDay = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLoca
 const uid = () => Math.random().toString(36).slice(2, 10);
 const brand = () => state.brands.find((b) => b.id === state.brandId);
 
-// Penyimpanan lokal per brand (sampai ada endpoint backend).
+// Penyimpanan lokal per brand hanya untuk modul lama yang belum dipindah.
 const local = {
   key: (k) => `timai.local.${state.brandId || 0}.${k}`,
   get(k) { try { return JSON.parse(localStorage.getItem(this.key(k))) || []; } catch { return []; } },
@@ -170,9 +170,26 @@ async function mpStore(team, body, u) {
   };
 }
 
+const LIVE_KEY = 'live.sessions';
+const liveRequest = (method, url, value) => api(url, { method, headers: { 'Content-Type': 'application/json' }, ...(value === undefined ? {} : { body: JSON.stringify(value) }) });
+async function liveRows() {
+  const currentBrand = state.brandId;
+  await window.timStore.ready({ refresh: true });
+  // Migrasi sekali dari browser lama. POST per item mencegah jadwal lama menimpa data user lain.
+  const flag = `timai.live.migrated.${currentBrand}`;
+  const old = local.get('mpLive');
+  if (old.length && !localStorage.getItem(flag)) {
+    for (const item of old) await liveRequest('POST', `/api/store/${LIVE_KEY}/items`, { item });
+    localStorage.setItem(flag, '1');
+    await window.timStore.ready({ force: true });
+  }
+  return window.timStore.get(LIVE_KEY, []);
+}
 async function mpLive(team, body, u) {
   markActive(`view-${team}`, 'data-ads-tab', 'live');
-  const all = local.get('mpLive').sort((a, b) => `${a.day}${a.start}`.localeCompare(`${b.day}${b.start}`));
+  let all;
+  try { all = (await liveRows()).sort((a, b) => `${a.day}${a.start}`.localeCompare(`${b.day}${b.start}`)); }
+  catch (ex) { body.innerHTML = `<div class="error">Data live gagal dimuat: ${esc(ex.message)}</div>`; return; }
   const today = todayStr();
   const upcoming = all.filter((s) => s.day >= today && !s.gmv);
   const done = all.filter((s) => s.gmv || s.day < today).reverse();
@@ -215,21 +232,31 @@ async function mpLive(team, body, u) {
     done.map((s) => `<tr><td>${fmtDay(s.day)}<div class="hint" data-num>${esc(s.start)}–${esc(s.end)}</div></td><td>${esc(mpName(s.mp))}</td><td>${esc(s.host || '–')}${s.cohost ? `<div class="hint">+ ${esc(s.cohost)}</div>` : ''}</td><td data-num>${hoursOf(s).toLocaleString('id-ID', { maximumFractionDigits: 1 })} j</td><td data-num>${s.gmv ? rp(s.gmv) : '<span class="hint">belum diisi</span>'}</td><td data-num>${num(s.orders)}</td><td data-num>${num(s.peak)}</td><td data-num>${rp(div(Number(s.gmv), hoursOf(s)))}</td><td>${esc(s.sku || '–')}</td>
       <td class="nowrap"><button class="link small" data-live-result="${s.id}">Edit</button> <button class="asset-del static" data-x-del="${s.id}" aria-label="Hapus">✕</button></td></tr>`),
     'Belum ada sesi selesai.')}
-    ${localNote()}`;
-  $('#live-in', body).onsubmit = (e) => {
+    <p class="hint local-note">💾 Jadwal & hasil live disimpan bersama per brand. Anggota tim lain melihat perubahan setelah memuat ulang.</p>`;
+  $('#live-in', body).onsubmit = async (e) => {
     e.preventDefault();
     const v = formData(e.target);
-    local.set('mpLive', [...local.get('mpLive'), { id: uid(), ...v }]);
-    S.toast(`Shift live dijadwalkan: ${fmtDay(v.day)} ${v.start}`);
-    mpLive(team, body, u);
+    try {
+      await liveRequest('POST', `/api/store/${LIVE_KEY}/items`, { item: { id: uid(), ...v } });
+      await window.timStore.ready({ force: true });
+      S.toast(`Shift live dijadwalkan: ${fmtDay(v.day)} ${v.start}`);
+      mpLive(team, body, u);
+    } catch (ex) { S.toast(`Gagal menyimpan jadwal: ${ex.message}`); }
   };
-  body.onclick = (e) => {
+  body.onclick = async (e) => {
     if (e.target.closest('[data-x-csv]')) csv('live-sesi', ['Tanggal', 'Mulai', 'Selesai', 'Platform', 'Host', 'Co-host', 'GMV', 'Pesanan', 'Viewer peak', 'SKU terlaris'], done.map((s) => [s.day, s.start, s.end, mpName(s.mp), s.host, s.cohost, s.gmv, s.orders, s.peak, s.sku]));
     const del = e.target.closest('[data-x-del]');
-    if (del && confirm('Hapus sesi ini?')) { local.set('mpLive', local.get('mpLive').filter((s) => s.id !== del.dataset.xDel)); S.toast('Sesi dihapus'); mpLive(team, body, u); return; }
+    if (del && confirm('Hapus sesi ini?')) {
+      try {
+        await liveRequest('DELETE', `/api/store/${LIVE_KEY}/items/${encodeURIComponent(del.dataset.xDel)}`);
+        await window.timStore.ready({ force: true }); S.toast('Sesi dihapus'); mpLive(team, body, u);
+      } catch (ex) { S.toast(`Gagal menghapus: ${ex.message}`); }
+      return;
+    }
     const res = e.target.closest('[data-live-result]');
     if (!res) return;
-    const s = local.get('mpLive').find((x) => x.id === res.dataset.liveResult);
+    const s = all.find((x) => x.id === res.dataset.liveResult);
+    if (!s) { S.toast('Sesi tidak ditemukan, muat ulang halaman'); return; }
     S.openModal(`<form id="lr-form"><h3>Hasil live · ${esc(fmtDay(s.day))} ${esc(s.start)}</h3>
       <div class="form-grid">
         <div><label class="label">GMV (Rp)</label><input name="gmv" type="number" min="0" value="${esc(s.gmv || '')}" required></div>
@@ -238,13 +265,14 @@ async function mpLive(team, body, u) {
         <div><label class="label">SKU terlaris</label><input name="sku" value="${esc(s.sku || s.focus || '')}"></div>
       </div>
       <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary">Simpan hasil</button></div></form>`);
-    $('#lr-form').onsubmit = (ev) => {
+    $('#lr-form').onsubmit = async (ev) => {
       ev.preventDefault();
       const v = formData(ev.target);
-      local.set('mpLive', local.get('mpLive').map((x) => (x.id === s.id ? { ...x, ...v } : x)));
-      S.closeModal();
-      S.toast('Hasil live tersimpan');
-      mpLive(team, body, u);
+      try {
+        await liveRequest('PATCH', `/api/store/${LIVE_KEY}/items/${encodeURIComponent(s.id)}`, { patch: v });
+        await window.timStore.ready({ force: true });
+        S.closeModal(); S.toast('Hasil live tersimpan'); mpLive(team, body, u);
+      } catch (ex) { S.toast(`Gagal menyimpan hasil: ${ex.message}`); }
     };
   };
 }

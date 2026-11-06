@@ -15,7 +15,7 @@ export const OWNER = Object.freeze({ id: 0, username: 'admin', role: 'owner', te
 // Tim: "konten" (bikin konten), "medsos" (distribusi & performa), "digital" (Launch Lab & landing page),
 // "adv" (iklan Meta/TikTok/Google), "mp" (iklan & laporan marketplace), "cs" (layanan pelanggan), atau "semua".
 // "kol" (influencer/KOL berbayar) dan "affiliate" (kreator afiliasi berbasis komisi).
-export const TEAMS = ['konten', 'medsos', 'digital', 'adv', 'mp', 'kol', 'affiliate', 'cs', 'semua'];
+export const TEAMS = ['konten', 'medsos', 'digital', 'adv', 'mp', 'live', 'kol', 'affiliate', 'cs', 'sales', 'keuangan', 'semua'];
 
 function safeEqual(a, b) {
   const x = Buffer.from(String(a));

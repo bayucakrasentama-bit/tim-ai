@@ -39,7 +39,7 @@ function aiReply({ system = '', prompt = '' }) {
 async function apiRoute(req, url, body) {
   const p = url.pathname;
   if (p === '/api/config') return { auth: false, ai: true };
-  if (p === '/api/me') return { user: { id: 1, username: 'demo', role: 'owner', team: 'semua' }, brands: [{ id: 1, name: 'HerbalDrink', description: 'Minuman herbal kemasan untuk pekerja kantoran' }] };
+  if (p === '/api/me') return { user: { id: 1, username: 'demo', role: process.env.MOCK_ROLE || 'owner', team: process.env.MOCK_TEAM || 'semua' }, brands: [{ id: 1, name: 'HerbalDrink', description: 'Minuman herbal kemasan untuk pekerja kantoran' }] };
   if (p === '/api/platforms') return [{ id: 'instagram', label: 'Instagram', supports: ['text', 'image', 'video'], fields: [] }];
   if (p === '/api/ai/status') return { enabled: true, provider: 'mock', model: 'mock-1' };
   if (p === '/api/ai/chat') return { text: aiReply(body || {}) };

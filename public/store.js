@@ -6,7 +6,7 @@
 const S = window.siarin;
 const { api } = S;
 const json = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const PREFIXES = ['agents.', 'cs.', 'today.'];
+const PREFIXES = ['agents.', 'cs.', 'today.', 'live.'];
 const STALE_MS = 20_000;
 // Kunci lama di localStorage → kunci server. Simulator chat & tanda "terkirim" broadcast tetap per browser.
 const LEGACY = [
@@ -59,10 +59,10 @@ async function load(e) {
 window.timStore = {
   isReady: () => entry().at > 0,
   // Muat (atau segarkan kalau sudah > 20 detik). Hasil: true kalau ada data yang berubah.
-  ready({ refresh = false } = {}) {
+  ready({ refresh = false, force = false } = {}) {
     const e = entry();
     if (e.promise) return e.promise;
-    if (e.at && !(refresh && Date.now() - e.at > STALE_MS)) return Promise.resolve(false);
+    if (e.at && !force && !(refresh && Date.now() - e.at > STALE_MS)) return Promise.resolve(false);
     e.promise = load(e).catch(() => { e.at = e.at || Date.now(); return false; }).finally(() => { e.promise = null; });
     return e.promise;
   },

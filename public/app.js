@@ -1,3 +1,4 @@
+import { homeForTeam } from './workspace-policy.js';
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -127,7 +128,7 @@ function show(view) {
   $('#mb-title').textContent = navBtn?.querySelector('.nav-label')?.textContent || '';
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
-  try { localStorage.setItem('siarin.view', view); } catch { /* mode privat */ }
+  try { localStorage.setItem(`siarin.view.${state.me?.user.id ?? 'guest'}`, view); } catch { /* mode privat */ }
   if (view === 'calendar') renderCalendar();
   if (view === 'history') renderHistory();
   if (view === 'accounts') renderAccounts();
@@ -747,8 +748,9 @@ async function loadMe() {
     : '<b>Mode lokal</b><span>tanpa login</span>';
   $('#ub-avatar').textContent = (state.config.auth ? state.me.user.username : 'T')[0].toUpperCase();
   applyTeamNav();
+  document.dispatchEvent(new Event('timai:profile-ready'));
 }
-const TEAM_LABEL = { konten: 'Tim Konten', medsos: 'Tim Medsos', digital: 'Tim Digital', adv: 'Tim ADV', mp: 'Tim MP', kol: 'Tim KOL', affiliate: 'Tim Affiliate', cs: 'Tim CS', founder: 'Tim Founder', semua: 'Semua tim' };
+const TEAM_LABEL = { konten: 'Tim Konten', medsos: 'Tim Medsos', digital: 'Tim Digital', adv: 'Tim ADV', mp: 'Tim MP', live: 'Tim Live', kol: 'Tim KOL', affiliate: 'Tim Affiliate', cs: 'Tim CS', sales: 'Tim Sales', keuangan: 'Tim Keuangan', founder: 'Tim Founder', semua: 'Semua tim' };
 const ROLE_LABEL = { owner: 'Pemilik', admin: 'Admin', lead: 'Lead / Supervisor', member: 'Anggota' };
 
 async function switchBrand(id) {
@@ -825,7 +827,7 @@ $('#nav-more').addEventListener('click', () => {
   const open = $('#nav').classList.toggle('show-all');
   $('#nav-more').textContent = open ? 'Menu tim saja ▴' : 'Semua menu ▾';
 });
-const TEAM_HOME = { konten: 'planner', medsos: 'calendar', digital: 'launch', adv: 'adv', mp: 'mp', kol: 'kol', affiliate: 'affiliate', cs: 'inbox', founder: 'founder', semua: 'today' };
+// Landing baru: semua tim memulai dari daftar kerja yang relevan.
 
 // Dipakai suite.js (Dashboard, Planner, Analitik, AI, Tim).
 window.siarin = {
@@ -865,10 +867,11 @@ function showWaiting() {
   const oauthState = new URLSearchParams(location.search).get('oauth');
   if (oauthState) finishOAuth(oauthState);
   else {
-    let last = TEAM_HOME[state.me?.user.team] || 'dashboard';
-    try { last = localStorage.getItem('siarin.view') || last; } catch { /* mode privat */ }
+    let last = homeForTeam(state.me?.user.team);
+    try { last = localStorage.getItem(`siarin.view.${state.me.user.id}`) || last; } catch { /* mode privat */ }
+    if (document.querySelector(`#nav [data-view="${last}"]`)?.classList.contains('nav-extra')) last = homeForTeam(state.me?.user.team);
     if (new URLSearchParams(location.search).get('inbox_oauth')) last = 'inbox'; // balik dari menghubungkan toko
-    show(document.getElementById(`view-${last}`) ? last : 'dashboard');
+    show(document.getElementById(`view-${last}`) ? last : 'today');
   }
   setInterval(refreshViews, 10000);
 })();
