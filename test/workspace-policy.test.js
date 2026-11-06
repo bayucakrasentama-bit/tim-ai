@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { visibleViews, homeForTeam, todayAreas, doneKey, teamActions } from '../public/workspace-policy.js';
 import { TEAMS } from '../src/auth.js';
+import { validUsername } from '../src/team.js';
 
 const teams = { adv: 'adv', mp: 'mp', 'agents-adv': 'adv', planner: 'konten medsos', calendar: 'konten medsos', compose: 'medsos', studio: 'konten digital' };
 const lookup = (view) => teams[view] || '';
@@ -38,6 +39,12 @@ test('new teams have dedicated identity and working shortcuts', () => {
 test('teams requested by owner are not accidentally granted admin role', () => {
   assert.ok(TEAMS.includes('konten') && TEAMS.includes('adv') && TEAMS.includes('mp'));
   assert.ok(TEAMS.includes('medsos') && TEAMS.includes('kol') && TEAMS.includes('affiliate'));
+});
+
+test('requested two-letter username mp is accepted without admitting other short names', () => {
+  assert.equal(validUsername('mp'), true);
+  assert.equal(validUsername('ab'), false);
+  assert.equal(validUsername('konten'), true);
 });
 
 test('teams without integrated tasks have direct useful actions', () => {
