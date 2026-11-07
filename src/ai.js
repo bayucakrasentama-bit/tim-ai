@@ -93,6 +93,14 @@ async function aiConfig() {
   };
 }
 
+export function resolveContentRoute(provider, { defaultRoute, geminiModel, geminiAvailable, openaiAvailable }) {
+  if (!provider) return null; // Tetap kompatibel dengan pemanggil lama.
+  if (provider !== 'gemini' && provider !== 'openai') throw new AiError('Pilihan AI konten tidak dikenal.', 400);
+  if (provider === 'gemini' && !geminiAvailable) throw new AiError('Gemini belum aktif. Minta admin isi API key Gemini di Pengaturan → AI & API Keys.', 503);
+  if (provider === 'openai' && !openaiAvailable) throw new AiError('GPT belum aktif. Minta admin isi API key OpenAI di Pengaturan → AI & API Keys.', 503);
+  return { provider, model: defaultRoute?.provider === provider ? defaultRoute.model : provider === 'gemini' ? geminiModel : 'gpt-4.1-mini' };
+}
+
 // Model default dari AI Router (Pengaturan → AI & API Keys). Key Gemini pribadi tetap diutamakan untuk pemiliknya.
 async function routedDefault() {
   if (!settingsDb) return null;
@@ -144,8 +152,12 @@ function aiError(err) {
 // - schema: hasil dipaksa JSON lewat structured outputs.
 // - tools (mis. web search): hasil diminta berupa JSON di akhir jawaban, lalu diambil dari teksnya.
 // - schema & tools kosong: jawaban teks biasa (AI Mentor).
-export async function askClaude({ content, messages, schema = null, tools = null, system = SYSTEM, effort = 'medium', maxTokens = 32000 }) {
-const route = await routedDefault();
+export async function askClaude({ content, messages, schema = null, tools = null, system = SYSTEM, effort = 'medium', maxTokens = 32000, routeTarget = null }) {
+if (routeTarget?.provider === 'gemini') {
+  const cfg = await aiConfig();
+  if (cfg.personalKey) return parseAnswer(await askGemini({ ...cfg, geminiModel: routeTarget.model }, { content, messages, schema, tools, system, effort, maxTokens }), schema, tools);
+}
+const route = routeTarget || await routedDefault();
 if (route) {
   let out;
   try {
@@ -262,6 +274,16 @@ export function aiRoutes(app, db, scope) {
     res.json(await status());
   });
   app.get('/api/ai/status', async (_req, res) => res.json(await status()));
+  const contentChoices = async () => {
+    const [cfg, def, openai] = await Promise.all([aiConfig(), getDefault(db), credsFor(db, 'openai')]);
+    const state = { defaultRoute: def, geminiModel: cfg.geminiModel, geminiAvailable: !!cfg.geminiKey, openaiAvailable: !!openai.key };
+    return state;
+  };
+  app.get('/api/ai/content-options', async (_req, res) => {
+    const s = await contentChoices();
+    res.json({ gemini: { configured: s.geminiAvailable, model: s.geminiAvailable ? resolveContentRoute('gemini', s).model : null },
+      openai: { configured: s.openaiAvailable, model: s.openaiAvailable ? resolveContentRoute('openai', s).model : null } });
+  });
 
   // Pemilik/admin: pilih provider, simpan API key Gemini (tidak pernah dikirim balik ke browser), ganti model.
   app.put('/api/ai/config', async (req, res) => {
@@ -322,7 +344,8 @@ Tujuan: ${clip(b.goal, 200) || 'awareness & engagement'}
 Untuk tiap ide: judul singkat, pilar, format (mis. Reels, carousel, video pendek, foto, thread), platform, hook 1-2 kalimat untuk 3 detik pertama,
 angle (sudut pandang yang bikin beda), script lengkap siap rekam (dengan penanda adegan/scene bila video), caption siap pakai, CTA, dan 3-8 hashtag.
 Kalau ada data performa, condongkan ide ke pola yang terbukti berhasil dan jelaskan lewat angle.`;
-    return ask('ideas', prompt, { effort: 'medium' });
+    const routeTarget = resolveContentRoute(b.provider, await contentChoices());
+    return ask('ideas', prompt, { effort: 'medium', routeTarget });
   }));
 
   // Analisa performa dari data yang ada.
@@ -356,7 +379,8 @@ Platform: ${clip(b.platforms, 200) || 'sesuaikan dengan data'}
 Isi: positioning singkat, 3-5 pilar konten (dengan porsi persen yang totalnya 100, alasan, dan contoh), jadwal mingguan (hari, jam WIB, platform, format, pilar),
 rencana konten tanggal per tanggal (field date format YYYY-MM-DD, total ${weeks * perWeek} konten, dengan judul dan hook), dan 3-5 KPI dengan target realistis.
 Pakai jam tayang terbaik dari data kalau ada.`;
-    return ask('strategy', prompt, { effort: 'high', maxTokens: 48000 });
+    const routeTarget = resolveContentRoute(b.provider, await contentChoices());
+    return ask('strategy', prompt, { effort: 'high', maxTokens: 48000, routeTarget });
   }));
 
   // AI Metrics Extractor: baca angka dari screenshot insight.

@@ -754,9 +754,10 @@ $('#an-report').addEventListener('click', async () => {
 // ======================================================================
 let aiTab = 'ideas';
 let aiStatus = null;
+let contentOptions = null;
 
 async function renderAi() {
-  aiStatus = await api('/api/ai/status');
+  [aiStatus, contentOptions] = await Promise.all([api('/api/ai/status'), api('/api/ai/content-options')]);
   const b = brand();
   $('#ai-status').innerHTML = `${aiSettingsHtml()}
     <details class="card brand-profile" ${b?.description ? '' : 'open'}>
@@ -833,11 +834,24 @@ document.addEventListener('click', (e) => {
   });
 });
 
+function geminiOrGptReady() { return contentOptions?.gemini?.configured || contentOptions?.openai?.configured; }
+function contentProviderSelect() {
+  const gemini = contentOptions?.gemini;
+  const gpt = contentOptions?.openai;
+  return `<div class="span-2"><label class="label" for="ai-content-provider">Buat langsung di TIM-AI pakai</label>
+    <select id="ai-content-provider" name="provider">
+      <option value="gemini" ${gemini?.configured ? '' : 'disabled'}>Gemini${gemini?.configured ? '' : ' (belum aktif)'}</option>
+      <option value="openai" ${gpt?.configured ? '' : 'disabled'}>GPT (OpenAI)${gpt?.configured ? '' : ' (belum aktif)'}</option>
+    </select>
+    ${gpt?.configured ? '' : '<p class="hint">GPT butuh API key OpenAI. Minta admin mengisinya di Pengaturan → AI & API Keys; setelah aktif, hasilnya muncul di sini juga.</p>'}
+  </div>`;
+}
 function drawAiPanel() {
   document.querySelectorAll('#ai-tabs button').forEach((t) => t.classList.toggle('active', t.dataset.tab === aiTab));
   const pillars = [...new Set(plannerItems.map((i) => i.pillar).filter(Boolean))];
   const forms = {
     ideas: `<form id="ai-form" class="form-grid">
+      ${contentProviderSelect()}
       <div class="span-2"><label class="label" for="ai-brief">Topik / brief</label>
         <textarea id="ai-brief" name="brief" rows="3" placeholder="mis. promo menu baru matcha latte minggu depan, pengen yang relate sama anak kos"></textarea></div>
       <div><label class="label" for="ai-pillar">Pilar</label><input id="ai-pillar" name="pillar" list="ai-pillars" placeholder="opsional">
@@ -845,19 +859,20 @@ function drawAiPanel() {
       <div><label class="label" for="ai-platform">Platform</label><select id="ai-platform" name="platform"><option value="">Bebas</option>${PLATFORMS.map((p) => `<option>${p.label}</option>`).join('')}</select></div>
       <div><label class="label" for="ai-goal">Tujuan</label><select id="ai-goal" name="goal"><option>Awareness & views</option><option>Engagement</option><option>Follower baru</option><option>Leads & penjualan</option></select></div>
       <div><label class="label" for="ai-count">Jumlah ide</label><select id="ai-count" name="count"><option>3</option><option selected>5</option><option>8</option><option>10</option></select></div>
-      <div class="span-2 btn-row left"><button class="primary" type="submit">✨ Bikin ide, hook & script</button>${S.gemini.button('text', { label: 'Bikin di Gemini', form: 'Buat ide konten media sosial untuk pasar Indonesia. Tiap ide lengkap dengan judul, hook 3 detik, script, caption, CTA, dan hashtag.' })}</div></form>`,
+      <div class="span-2 btn-row left"><button class="primary" type="submit" ${geminiOrGptReady() ? '' : 'disabled'}>✨ Bikin ide, hook & script di sini</button></div></form>`,
     analyze: `<form id="ai-form" class="form-grid">
       <div><label class="label" for="ai-days">Periode data</label><select id="ai-days" name="days"><option value="7">7 hari</option><option value="30" selected>30 hari</option><option value="90">90 hari</option></select></div>
       <div class="span-2"><p class="hint">AI membaca data di menu Analitik (views, engagement, funnel, pilar, jam tayang) lalu bilang apa yang jalan, apa yang bocor, dan apa yang harus dikerjakan minggu ini.</p>
       <button class="primary" type="submit">✨ Analisa performa</button></div></form>`,
     strategy: `<form id="ai-form" class="form-grid">
+      ${contentProviderSelect()}
       <div class="span-2"><label class="label" for="ai-sgoal">Tujuan utama</label>
         <input id="ai-sgoal" name="goal" placeholder="mis. naikkan penjualan online 30% dalam sebulan"></div>
       <div><label class="label" for="ai-splat">Platform</label><input id="ai-splat" name="platforms" placeholder="mis. Instagram & TikTok"></div>
       <div><label class="label" for="ai-start">Mulai tanggal</label><input id="ai-start" name="startDate" type="date" value="${new Date(Date.now() + 86400_000).toISOString().slice(0, 10)}"></div>
       <div><label class="label" for="ai-weeks">Durasi</label><select id="ai-weeks" name="weeks"><option value="1">1 minggu</option><option value="2">2 minggu</option><option value="4" selected>4 minggu</option></select></div>
       <div><label class="label" for="ai-ppw">Konten per minggu</label><select id="ai-ppw" name="postsPerWeek">${[3, 4, 5, 7, 10, 14].map((n) => `<option ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <div class="span-2 btn-row left"><button class="primary" type="submit">✨ Susun strategi & kalender</button>${S.gemini.button('text', { label: 'Susun di Gemini', form: 'Susun strategi konten media sosial (positioning, pilar konten, jadwal posting, kalender konten per tanggal, dan KPI).' })}</div></form>`,
+      <div class="span-2 btn-row left"><button class="primary" type="submit" ${geminiOrGptReady() ? '' : 'disabled'}>✨ Susun strategi & kalender di sini</button></div></form>`,
   };
   $('#ai-panel').innerHTML = forms[aiTab];
   $('#ai-form').addEventListener('submit', runAi);

@@ -12,7 +12,7 @@ const KEYS = 'ai_keys';
 const DEFAULT = 'ai_default';
 
 export const PROVIDERS = {
-  openai: { label: 'OpenAI', kind: 'openai', base: 'https://api.openai.com/v1', caps: ['text', 'image'], keyUrl: 'https://platform.openai.com/api-keys', or: 'openai' },
+  openai: { label: 'OpenAI', kind: 'openai', base: 'https://api.openai.com/v1', caps: ['text', 'image'], keyUrl: 'https://platform.openai.com/api-keys', env: 'OPENAI_API_KEY', or: 'openai' },
   anthropic: { label: 'Anthropic (Claude)', kind: 'anthropic', base: 'https://api.anthropic.com', caps: ['text'], keyUrl: 'https://console.anthropic.com/settings/keys', env: 'ANTHROPIC_API_KEY', or: 'anthropic' },
   gemini: { label: 'Google Gemini', kind: 'gemini', base: 'https://generativelanguage.googleapis.com', caps: ['text'], keyUrl: 'https://aistudio.google.com/apikey', env: 'GEMINI_API_KEY', or: 'google' },
   deepseek: { label: 'DeepSeek', kind: 'openai', base: 'https://api.deepseek.com/v1', caps: ['text'], keyUrl: 'https://platform.deepseek.com/api_keys', or: 'deepseek' },
