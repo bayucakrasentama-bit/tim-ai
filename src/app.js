@@ -12,6 +12,7 @@ import { createAuth, cronAllowed, canManage } from './auth.js';
 import { aiRouterRoutes } from './ai-router.js';
 import { opsRoutes, notifyFailedPosts } from './ops.js';
 import { founderRoutes, runFounderBriefs } from './founder.js';
+import { factoryRoutes } from './factory/routes.js';
 import { brandStoreRoutes } from './brand-store.js';
 import { teamRoutes, brandScope } from './team.js';
 import { conductorRoutes } from './conductor.js';
@@ -187,6 +188,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   inboxRoutes(app, db, scope, { storage, ownerUsername: username });
   reportRoutes(app, db, scope, { ownerUsername: username });
   founderRoutes(app, db, scope, { ownerUsername: username });
+  factoryRoutes(app, db, scope, { upload, storage });
   brandStoreRoutes(app, db, scope);
 
   // ---- Akun ----
