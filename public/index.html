@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <script>try{var t=localStorage.getItem('timai.theme');if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem('timai.sb')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
-  <link rel="stylesheet" href="/dist/app.min.css" onerror="this.remove();['style','ds','agents','focus'].forEach(function(n){var l=document.createElement('link');l.rel='stylesheet';l.href='/'+n+'.css';document.head.appendChild(l)})">
+  <link rel="stylesheet" href="/dist/app.min.css" onerror="this.remove();['style','ds','agents','factory','focus'].forEach(function(n){var l=document.createElement('link');l.rel='stylesheet';l.href='/'+n+'.css';document.head.appendChild(l)})">
 </head>
 <body>
   <!-- Tata letak: sidebar kiri (menu per tim) + area kerja. Di HP sidebar jadi menu geser. -->
@@ -29,6 +29,7 @@
 <button data-view="planner" data-team="konten medsos">Planner</button>
 <button data-view="studio" data-team="konten digital">Studio Visual</button>
 <button data-view="motion" data-team="konten">Video Motion</button>
+<button data-view="factory" data-team="konten">Motion Factory</button>
 <button data-view="ai" data-team="konten">AI Studio</button>
 <span class="nav-group" data-group="digital">Tim Digital</span>
 <button data-view="launch" data-team="digital">Launch Lab</button><button data-view="agents-digital" data-team="digital konten">Agen Produk &amp; Brand</button>
@@ -117,6 +118,7 @@
 
     <!-- VIDEO MOTION (diisi motion.js) -->
     <section id="view-motion" class="view"></section>
+    <section id="view-factory" class="view"></section>
 
     <!-- INBOX CS (diisi inbox.js) -->
     <section id="view-inbox" class="view view-full"></section>

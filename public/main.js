@@ -22,6 +22,7 @@ import './medsos.js';
 import './studio-ai.js';
 import './store.js';
 import './agents.js';
+import './factory.js';
 import './cs-closer.js';
 import './today.js';
 import './free-tools.js';

@@ -1,0 +1,20 @@
+/* Motion Factory (factory.js). Memakai token warna dari style.css / ds.css. */
+.fx-agent { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
+.fx-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.fx-agent.on .fx-dot { background: var(--ok); }
+.fx-agent.off { background: var(--bg); }
+.fx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+.fx-radios { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 8px; }
+.fx-radios label { display: inline-flex; align-items: center; gap: 6px; }
+.fx-radios input { width: auto; margin: 0; }
+#view-factory .card { margin-bottom: 14px; }
+.fx-prog { min-width: 120px; }
+.fx-bar { height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; margin-bottom: 2px; }
+.fx-bar i { display: block; height: 100%; background: var(--accent); }
+.fx-msg { max-width: 220px; overflow-wrap: anywhere; }
+.fx-acts { white-space: nowrap; }
+.fx-acts button { margin: 0 2px 2px 0; }
+.fx-thumb { margin-top: 6px; }
+.fx-thumb img { max-width: 100%; max-height: 120px; border-radius: 8px; border: 1px solid var(--line); }
+.fx-modal textarea { width: 100%; }
+@media (max-width: 600px) { .fx-acts { white-space: normal; } }

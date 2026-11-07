@@ -59,6 +59,7 @@ const ICONS = {
   reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   planner: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
   studio: '<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/>',
+  factory: '<path d="M3 20V10l6 3V9l6 3V6h3l3 1v13z"/><path d="M7 20v-3M12 20v-3M17 20v-3"/>',
   motion: '<rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 10l4-2v8l-4-2"/>',
   launch: '<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2m6.5-12.5a6 6 0 0 1 4 4L13 15l-4-4z"/><circle cx="15" cy="9" r="1.5"/>',
   ai: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/><circle cx="12" cy="12" r="3"/>',
