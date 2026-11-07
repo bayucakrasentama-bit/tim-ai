@@ -1,3 +1,5 @@
+import { executeConductorPlan, applyBrandScopedResponse } from './conductor-runner.js';
+import { buildAdReferenceBrief } from './ad-reference.js';
 // Agen AI per tim + CS AI Closing + Kantor AI (tim baru: Tim Founder).
 // - Tim Digital & Konten → Agen Produk & Brand (dulu Brand Lab + Agen Produk Digital): blueprint produk, eBook,
 //   LP storytelling, audit konversi LP, strategi logo, tagline & slogan, brand identity kit.
@@ -124,6 +126,14 @@ const AGENTS = [
     fields: [F.product, F.audience, { k: 'goal', label: 'Tujuan campaign', opts: ['Penjualan', 'Leads', 'Awareness', 'Launching produk'] }],
     sys: 'Kamu creative director iklan digital.',
     out: '## 3 big concept (per konsep: nama, insight, visual hook, headline, prompt gambar Bahasa Inggris dalam blok kode)\n## Storyboard Reels 5 scene untuk konsep terbaik (tabel)\n## Cara uji ketiganya di Meta Ads' },
+  { id: 'adref', team: 'adv', group: 'kreatif', icon: '🧭', name: 'Riset Referensi Iklan', role: 'Bedah iklan referensi → konsep video original',
+    desc: 'Petakan hook, demo, offer, CTA dari bahan referensi lalu buat script baru yang relevan; URL saja tidak dianggap bukti.',
+    fields: [F.product, F.audience, { k: 'sourceUrl', label: 'URL Meta Ads Library / video (opsional)', ph: 'Tempel URL iklan publik' },
+      { k: 'reference', label: 'Bukti referensi: caption, transkrip, atau deskripsi adegan', rows: 7, ph: 'Tempel caption iklan dan ringkasan adegan/teks layar. Tanpa bahan ini, agen tidak mengklaim sudah menonton URL.' },
+      { k: 'offer', label: 'Offer dan bukti produk yang tersedia', rows: 2, ph: 'Harga, bonus, testimoni/data sah yang boleh dipakai' },
+      { k: 'format', label: 'Format output', opts: ['Reels 30 detik', 'Reels 15 detik', 'Reels 60 detik', 'UGC testimonial'] }],
+    sys: 'Kamu analis creative performance Meta Ads. Pisahkan bukti dari hipotesis. Jangan mengarang performa hanya dari iklan yang aktif di Ads Library. Hormati orisinalitas dan kepatuhan klaim.',
+    out: '## Peta referensi (OBSERVASI terverifikasi vs HIPOTESIS)\n## Struktur kreatif: hook → masalah → demo/bukti → manfaat → offer → CTA\n## Yang bisa dipelajari (prinsip, bukan salinan)\n## 3 konsep video original untuk produk ini\n## Script konsep terbaik (tabel: detik | visual/aksi | teks layar | VO/dialog | bukti yang perlu disiapkan)\n## Caption + headline + CTA\n## Klaim/data gap & checklist compliance\n## Rencana uji A/B (variabel tunggal, hipotesis, metrik)' },
   // ---------- Tim ADV (performa) ----------
   { id: 'rules', team: 'adv', group: 'performa', icon: '⚙️', name: 'Automated Rules', role: 'Aturan pause, scale, recovery, kontrol budget',
     desc: 'Blueprint rules Meta Ads Manager sesuai target CPA/CPL kamu.',
@@ -154,7 +164,43 @@ const AGENTS = [
     out: '## Ringkasan akun (3 kalimat)\n## Vonis per iklan (tabel: Iklan | KPI kunci | Vonis SCALE/HOLD/OPTIMIZE/KILL | Alasan | Tindakan)\n## Pola pemenang (kreatif, audiens, placement)\n## 3 tindakan hari ini' },
 ];
 const byId = Object.fromEntries(AGENTS.map((a) => [a.id, a]));
+const CORE_AGENT_COUNT = AGENTS.length;
 const AGENT_VIEW = { konten: 'agents-digital', digital: 'agents-digital', adv: 'agents-adv' };
+function replaceCustomCatalog(catalog) {
+  AGENTS.splice(CORE_AGENT_COUNT);
+  for (const id of (fo.dynamicTeamIds || [])) delete TEAM[id];
+  for (const id of Object.keys(byId)) if (id.startsWith('custom-')) delete byId[id];
+  fo.dynamicTeamIds = [];
+  for (const team of catalog.teams || []) {
+    TEAM[team.id] = { label: team.label, icon: team.icon || '🧩', views: [['founder', 'Kantor AI']] };
+    fo.dynamicTeamIds.push(team.id);
+  }
+  for (const agent of catalog.agents || []) {
+    const item = { ...agent, icon: '🤖', custom: true };
+    AGENTS.push(item); byId[item.id] = item;
+  }
+  fo.catalogCanManage = !!catalog.canManage;
+}
+async function loadConductorCatalog(force = false) {
+  if (!force && fo.catalogBrandId === state.brandId) return;
+  if (fo.catalogLoading) return fo.catalogLoading;
+  const brandId = state.brandId;
+  fo.catalogLoading = (async () => {
+    try {
+      const catalog = await api('/api/conductor/catalog');
+      if (state.brandId !== brandId) return;
+      replaceCustomCatalog(catalog);
+      fo.catalogBrandId = brandId; fo.catalogError = '';
+    } catch (ex) {
+      if (state.brandId === brandId) { replaceCustomCatalog({}); fo.catalogBrandId = brandId; fo.catalogError = ex.message; }
+    } finally {
+      fo.catalogLoading = null;
+      if (state.brandId !== brandId) { loadConductorCatalog(); return; }
+      if (document.getElementById('view-founder')?.classList.contains('active')) renderFounder();
+    }
+  })();
+  return fo.catalogLoading;
+}
 
 // ======================= RUNNER AGEN (dipakai 3 halaman) =======================
 const ui = { 'agents-digital': { agent: 'produk' }, 'agents-adv': { tab: 'kreatif', agent: 'hook' } };
@@ -195,10 +241,13 @@ async function runAgent(box, a, values) {
 }
 // Jalankan satu agen dan catat riwayat, pemakaian, dan aktivitasnya. Dipakai halaman agen dan Asisten AI (assistant.js).
 async function generate(a, values) {
+  const activeBrand = state.brandId;
   const brief = a.fields.filter((f) => String(values[f.k] || '').trim()).map((f) => `- ${f.label}: ${values[f.k]}`).join('\n');
   const act = logActivity({ agent: a.id, status: 'running', title: String(Object.values(values).find(Boolean) || '').slice(0, 60) });
   try {
-    const text = await chat(`${a.sys}${brandCtx()} ${BASE}`, `Brief:\n${brief}\n\nSusun hasil dengan format berikut:\n${a.out}`);
+    const prompt = a.id === 'adref' ? buildAdReferenceBrief(values, a.out) : `Brief:\n${brief}\n\nSusun hasil dengan format berikut:\n${a.out}`;
+    const text = await chat(`${a.sys}${brandCtx()} ${BASE}`, prompt);
+    if (state.brandId !== activeBrand) throw new Error('Brand berganti saat agen bekerja. Hasil tidak disimpan ke brand lain.');
     store.set(`hist.${a.id}`, [{ at: Date.now(), values, text }, ...history(a.id)].slice(0, 8));
     const u = usage(); u[a.id] = (u[a.id] || 0) + 1; store.set('usage', u);
     logActivity({ ...act, status: 'done', end: Date.now() });
@@ -278,6 +327,12 @@ function bindAgents(view, rerender) {
 function openAgent(id, values = {}) {
   const a = byId[id];
   if (!a) return;
+  if (a.custom) {
+    fo.tab = 'conductor';
+    S.show('founder');
+    conduct(`Gunakan agen ${a.name} untuk tugas ini. ${String(Object.entries(values).filter(([k]) => k !== 'autorun').map(([k, v]) => `${k}: ${v}`).join(' · ') || 'Bantu saya menentukan brief yang perlu diisi.')}`);
+    return;
+  }
   const view = AGENT_VIEW[a.team];
   ui[view].agent = id;
   if (a.group) ui[view].tab = a.group;
@@ -403,6 +458,15 @@ const REPORT_TEAMS = ['adv', 'mp', 'medsos', 'konten', 'digital', 'kol', 'affili
 const fo = { tab: 'conductor', plan: null, busy: false, brief: '' };
 function renderFounder() {
   const root = document.getElementById('view-founder');
+  if (fo.catalogBrandId !== state.brandId) {
+    root.innerHTML = `<div class="card"><span class="spinner inline"></span> Memuat katalog divisi & agen…</div>`;
+    loadConductorCatalog();
+    return;
+  }
+  if (fo.catalogError) {
+    root.innerHTML = `<div class="check bad">Katalog Conductor gagal dimuat: ${esc(fo.catalogError)} <button class="ghost small" data-fo-catalog-retry>Coba lagi</button></div>`;
+    return;
+  }
   const financeOnly = S.state.me?.user.team === 'keuangan' && !['owner', 'admin'].includes(S.state.me?.user.role);
   if (financeOnly) fo.tab = 'finance';
   root.innerHTML = `<div class="row-between"><h1>${financeOnly ? 'Tim Keuangan' : 'Kantor AI'}</h1><span class="tag">${financeOnly ? 'Tim Keuangan' : 'Tim Founder'}</span></div>
@@ -426,16 +490,39 @@ function foConductor(body) {
     <div class="btn-row left">${EXAMPLES.map((x, i) => `<button class="ghost small" data-fo-ex="${i}">${esc(x.slice(0, 42))}…</button>`).join('')}</div></div>
     ${fo.busy ? '<div class="card"><span class="spinner inline"></span> Conductor membagi tugas ke tim & agen…</div><div class="spinner"></div>' : ''}
     ${p ? `<div class="card"><div class="md">${md(p.summary || '')}</div>
-      ${(p.steps || []).length ? `<div class="label">Tugas untuk agen AI</div><div class="fo-steps">${p.steps.map((s, i) => { const a = byId[s.agent]; return a ? `<div class="fo-step"><span class="ag-ic">${a.icon}</span><div><b>${esc(a.name)}</b> <span class="tag ghost">${esc(TEAM[a.team].label)}</span><div class="hint">${esc(s.why || '')}</div></div><button class="ghost small" data-fo-run="${i}">Jalankan →</button></div>` : ''; }).join('')}</div>` : ''}
+      ${(p.proposals?.teams?.length || p.proposals?.agents?.length) ? `<div class="card"><div class="label">🧩 Usulan divisi & agen baru — menunggu approval</div><p class="hint">Belum aktif dan belum bisa dijalankan sampai disetujui owner/admin. Setelah disetujui, definisi tersimpan per brand dan masuk ke katalog Conductor.</p>${(p.proposals.teams || []).map((t) => `<div class="fo-step"><span class="ag-ic">${esc(t.icon || '🧩')}</span><div><b>${esc(t.label || t.id)}</b><div class="hint">Divisi baru · ${esc(t.id || '')}</div></div></div>`).join('')}${(p.proposals.agents || []).map((a) => `<div class="fo-step"><span class="ag-ic">🤖</span><div><b>${esc(a.name || a.id)}</b> <span class="tag ghost">${esc(TEAM[a.team]?.label || a.team || '')}</span><div class="hint">${esc(a.role || '')} · ${esc(a.desc || '')}</div></div></div>`).join('')}${fo.catalogCanManage ? `<div class="btn-row"><button type="button" class="primary" data-fo-approve-agents ${fo.proposalSaving ? 'disabled' : ''}>${fo.proposalSaving ? 'Menyimpan approval…' : 'Setujui & tambahkan ke TIM-AI'}</button></div>` : '<p class="hint">Minta owner/admin menyetujui usulan ini.</p>'}</div>` : ''}
+      ${(p.steps || []).length ? `<div class="label">Tugas untuk agen AI</div><div class="fo-steps">${p.steps.map((s, i) => { const a = byId[s.agent]; const r = fo.runs?.[i]; const status = { pending: 'Menunggu', running: 'Sedang mengerjakan…', done: 'Selesai', failed: 'Gagal', needs_input: `Butuh: ${r?.missing?.join(', ')}`, cancelled: 'Dibatalkan' }[r?.status]; return a ? `<div class="fo-step"><span class="ag-ic">${a.icon}</span><div><b>${esc(a.name)}</b> <span class="tag ghost">${esc(TEAM[a.team].label)}</span><div class="hint">${esc(s.why || '')}${status ? ` · ${esc(status)}` : ''}${r?.error ? ` · ${esc(r.error)}` : ''}</div>${r?.text ? `<details><summary>Lihat hasil agen</summary><pre class="fo-wa">${esc(r.text)}</pre><button type="button" class="ghost small" data-fo-result-plan="${i}">Simpan hasil ke Planner</button></details>` : ''}</div><button class="ghost small" data-fo-run="${i}" ${['running', 'done'].includes(r?.status) ? 'disabled' : ''}>${r?.status === 'running' ? 'Berjalan…' : r?.status === 'done' ? 'Selesai ✓' : 'Jalankan →'}</button></div>` : ''; }).join('')}</div><div class="btn-row"><button type="button" class="primary" data-fo-run-all ${fo.running ? 'disabled' : ''}>${fo.running ? 'Agen sedang bekerja…' : '▶ Jalankan semua agen'}</button></div>` : ''}
       ${(p.tasks || []).length ? `<div class="label">Tugas untuk tim (kartu Planner)</div><div class="fo-steps">${p.tasks.map((t, i) => `<div class="fo-step"><span class="ag-ic">${TEAM[t.team]?.icon || '📌'}</span><div><b>${esc(t.title)}</b> <span class="tag ghost">${esc(TEAM[t.team]?.label || t.team)}</span>${t.due ? ` <span class="hint">· ${esc(t.due)}</span>` : ''}<div class="hint">${esc(t.detail || '')}</div></div><button class="ghost small" data-fo-task="${i}">Buat kartu</button></div>`).join('')}</div>
         <div class="btn-row"><button class="ghost small" data-fo-alltasks>Buat semua kartu</button></div>` : ''}
       ${p.schedule?.what ? `<div class="label">Jadwal rutin</div><div class="fo-step"><span class="ag-ic">⏰</span><div><b>${esc(p.schedule.when || '')}</b><div class="hint">${esc(p.schedule.what)}</div></div><button class="ghost small" data-fo-sched>Simpan jadwal</button></div>` : ''}</div>` : ''}
     ${sched.length ? `<div class="card"><div class="label">Jadwal rutin tersimpan</div>${sched.map((s, i) => `<div class="fo-step"><span class="ag-ic">⏰</span><div><b>${esc(s.when)}</b><div class="hint">${esc(s.what)}</div></div><button class="link" data-fo-unsched="${i}">Hapus</button></div>`).join('')}
       <p class="hint">Jadwal ini pengingat di browser. Laporan pagi yang terkirim otomatis tiap hari diatur di tab <b>Laporan Pagi</b>.</p></div>` : ''}`;
 }
+function conductorAgents() { return Object.fromEntries(AGENTS.map((a) => [a.id, a])); }
+async function runConductorSteps(indices) {
+  if (fo.running || !fo.plan?.steps?.length) return;
+  fo.running = true;
+  const activeBrand = state.brandId;
+  const agents = conductorAgents();
+  if (!fo.runs) fo.runs = fo.plan.steps.map(() => ({ status: 'pending' }));
+  renderFounder();
+  try {
+    await executeConductorPlan(indices.map((i) => fo.plan.steps[i]), agents, async (id, values) => {
+      const result = await generate(agents[id], values);
+      if (state.brandId !== activeBrand) throw new Error('Brand berganti. Eksekusi dihentikan.');
+      return result;
+    }, (rows) => {
+      indices.forEach((i, j) => { fo.runs[i] = rows[j]; });
+      if (fo.tab === 'conductor' && state.brandId === activeBrand) renderFounder();
+    }, () => state.brandId === activeBrand);
+  } finally {
+    fo.running = false;
+    if (state.brandId === activeBrand && fo.tab === 'conductor') renderFounder();
+  }
+}
 async function conduct(cmd) {
-  fo.cmd = cmd; fo.busy = true; fo.plan = null; renderFounder();
-  const catalog = AGENTS.map((a) => `${a.id} | ${TEAM[a.team].label} | ${a.name}: ${a.desc} | field: ${a.fields.map((f) => f.k).join(', ')}`).join('\n');
+  fo.cmd = cmd; fo.busy = true; fo.plan = null; fo.runs = null; renderFounder();
+  const catalog = AGENTS.map((a) => `${a.id} | ${TEAM[a.team]?.label || a.team} | ${a.name}: ${a.desc} | field: ${a.fields.map((f) => f.k).join(', ')}`).join('\n');
   try {
     const text = await chat(`Kamu Conductor, kepala operasional AI yang membagi perintah owner ke tim dan agen AI.${brandCtx()} Jawab HANYA JSON valid.`,
       `Perintah owner: "${cmd}"
@@ -448,8 +535,10 @@ Format JSON:
 {"summary":"ringkasan rencana dalam Markdown (maks 6 baris, sebut urutan kerja)",
  "steps":[{"agent":"id agen dari daftar","why":"kenapa agen ini","values":{"field":"isi brief yang bisa disimpulkan dari perintah"}}],
  "tasks":[{"team":"kunci tim","title":"judul kartu singkat","detail":"apa yang dikerjakan","due":"mis. Senin"}],
- "schedule":{"when":"mis. Setiap Senin 09.00","what":"laporan/aksi rutin"} atau null}
-Pilih 1-5 agen yang paling relevan dan 0-6 tugas tim. Jangan mengarang id agen.`, { temperature: 0.4, max_tokens: 2000 });
+ "schedule":{"when":"mis. Setiap Senin 09.00","what":"laporan/aksi rutin"} atau null,
+ "proposals":{"teams":[{"id":"custom-<slug>","label":"nama divisi","icon":"emoji"}],"agents":[{"id":"custom-<slug>","team":"id tim yang ada atau usulan","name":"nama agen","role":"fungsi singkat","desc":"kapabilitas","fields":[{"k":"slug","label":"label input","req":true,"rows":3,"ph":"petunjuk"}],"sys":"instruksi kerja Bahasa Indonesia yang aman dan relevan","out":"format output Markdown"}]}}
+Aturan usulan: proposals harus {"teams":[],"agents":[]} kecuali perintah jelas meminta divisi/agen baru. Kalau bikin agen baru, buat definisi utuh agar bisa langsung dipakai; ID harus prefix custom-. Jangan masukkan usulan ke steps sebelum disetujui. Jangan mengarang id agen lama.
+Pilih 1-5 agen yang paling relevan dan 0-6 tugas tim.`, { temperature: 0.4, max_tokens: 4000 });
     fo.plan = parseJson(text);
   } catch (ex) {
     fo.plan = { summary: `⚠️ ${ex.message}` };
@@ -578,7 +667,7 @@ function foOffice(body) {
   const running = log.filter((e) => e.status === 'running' && Date.now() - e.at <= 600000).length;
   body.innerHTML = `<div class="kpi-row">${[['Agen AI', AGENTS.length + (window.timCs?.agents() || []).length], ['Sedang berjalan', running], ['Tugas selesai', log.filter((e) => e.status === 'done').length], ['Gagal', log.filter((e) => e.status === 'failed').length]]
       .map(([l, v]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`).join('')}</div>
-    <div class="vo-wrap"><div class="vo-floor">${rooms.map(([k, t]) => `<div class="vo-room"><div class="vo-room-head">${t.icon} ${t.label}</div><div class="vo-desks">
+    <div class="vo-wrap"><div class="vo-floor">${rooms.map(([k, t]) => `<div class="vo-room"><div class="vo-room-head">${esc(t.icon)} ${esc(t.label)}</div><div class="vo-desks">
         ${AGENTS.filter((a) => a.team === k).map((a) => { const e = last(a.id); return desk(a.id, a.icon, a.name, e ? `${STATUS[e.status][0]} · ${ago(e.end || e.at)}` : 'Siaga', e?.status || 'idle'); }).join('')}
         ${k === 'cs' ? (window.timCs?.agents() || []).map((c) => desk(`cs:${c.id}`, '🤖', c.agent, c.active ? 'CS AI · aktif 24/7' : 'CS AI · nonaktif', c.active ? 'done' : 'idle', 'data-fo-go="closer"')).join('') : ''}
       </div></div>`).join('')}
@@ -600,20 +689,47 @@ function foOrg(body) {
       <div class="org-line"></div><div class="org-node conductor" data-fo-go="founder"><span class="ag-ic">🎼</span><div><b>Conductor</b><div class="hint">Membagi perintah ke tim & agen</div></div></div><div class="org-line"></div></div>
     <div class="org-teams">${Object.entries(TEAM).filter(([k]) => k !== 'founder').map(([k, t]) => {
       const agents = AGENTS.filter((a) => a.team === k);
-      return `<div class="card org-team"><div class="org-th"><span class="ag-ic">${t.icon}</span><b>${t.label}</b>${k === 'cs' ? '<span class="tag">+ CS AI</span>' : ''}</div>
+      return `<div class="card org-team"><div class="org-th"><span class="ag-ic">${esc(t.icon)}</span><b>${esc(t.label)}</b>${k === 'cs' ? '<span class="tag">+ CS AI</span>' : ''}</div>
         <div class="label">Menu</div><div class="org-chips">${t.views.map(([v, l]) => `<button class="ghost small" data-fo-go="${v}">${esc(l)}</button>`).join('')}</div>
         ${agents.length ? `<div class="label">Agen AI (${agents.length})</div><div class="org-agents">${agents.map((a) => `<button class="org-agent" data-fo-agent="${a.id}"><span>${a.icon}</span> ${esc(a.name)}${u[a.id] ? ` <span class="hint">${u[a.id]}×</span>` : ''}</button>`).join('')}</div>` : ''}
         ${k === 'cs' ? `<div class="org-agents">${(window.timCs?.agents() || []).map((c) => `<button class="org-agent" data-fo-go="closer"><span>🤖</span> ${esc(c.agent)} (CS AI)</button>`).join('')}<span class="hint">${(window.timCs?.orders() || []).length} order AI</span></div>` : ''}
         <div class="hint">+ Master BCS (analisa laporan)</div></div>`;
     }).join('')}</div></div>`;
 }
+async function approveConductorProposal() {
+  const proposalPlan = fo.plan;
+  const proposals = proposalPlan?.proposals || {};
+  if (!fo.catalogCanManage) return toast('Approval hanya untuk owner/admin');
+  if (fo.proposalSaving) return;
+  const requestBrandId = state.brandId;
+  fo.proposalSaving = true; renderFounder();
+  try {
+    const catalog = await api('/api/conductor/catalog', json('POST', { teams: proposals.teams || [], agents: proposals.agents || [] }));
+    const applied = await applyBrandScopedResponse(requestBrandId, () => state.brandId, catalog, (value) => {
+      replaceCustomCatalog(value); fo.catalogBrandId = requestBrandId; fo.catalogError = '';
+    }, async () => {
+      fo.catalogBrandId = null; fo.catalogError = '';
+      await loadConductorCatalog(true);
+    });
+    if (fo.plan === proposalPlan) proposalPlan.proposals = { teams: [], agents: [] };
+    toast(applied ? 'Approval berhasil. Divisi dan agen tersedia di katalog brand ini.' : 'Approval tersimpan di brand sebelumnya; katalog brand aktif sudah dimuat ulang.');
+  } catch (ex) { toast(ex.message); }
+  finally { fo.proposalSaving = false; renderFounder(); }
+}
 function bindFounder() {
   const root = document.getElementById('view-founder');
   root.addEventListener('click', async (e) => {
     const d = e.target.closest('button')?.dataset || {};
     if (d.foTab) { fo.tab = d.foTab; renderFounder(); }
+    if (d.foCatalogRetry !== undefined) { fo.catalogBrandId = null; fo.catalogError = ''; renderFounder(); }
+    if (d.foApproveAgents !== undefined) approveConductorProposal();
     if (d.foEx) { const ta = $('[data-fo-cmd] textarea', root); ta.value = EXAMPLES[Number(d.foEx)]; ta.focus(); }
-    if (d.foRun) { const s = fo.plan.steps[Number(d.foRun)]; openAgent(s.agent, s.values || {}); }
+    if (d.foRun) { runConductorSteps([Number(d.foRun)]); }
+    if (d.foRunAll !== undefined) runConductorSteps((fo.plan?.steps || []).map((_, i) => i));
+    if (d.foResultPlan !== undefined) {
+      const i = Number(d.foResultPlan); const step = fo.plan?.steps?.[i]; const result = fo.runs?.[i];
+      if (result?.status === 'done' && result.text) taskCard({ team: byId[step.agent]?.team, title: `${byId[step.agent]?.name || 'Hasil agen'}: ${String(Object.values(step.values || {}).find(Boolean) || brand()?.name || 'hasil').slice(0, 45)}`, detail: `Dari Conductor (${byId[step.agent]?.name})\nPerintah: ${fo.cmd}\n\n${result.text}` }).then(() => toast('Hasil agen masuk ke Planner ✓')).catch((ex) => toast(ex.message));
+    }
     if (d.foTask) { try { await taskCard(fo.plan.tasks[Number(d.foTask)]); toast('Kartu dibuat di kolom Ide ✓'); } catch (ex) { toast(ex.message); } }
     if (d.foAlltasks !== undefined) {
       try { for (const t of fo.plan.tasks) await taskCard(t); toast(`${fo.plan.tasks.length} kartu dibuat di Planner ✓`); } catch (ex) { toast(ex.message); }
@@ -657,4 +773,4 @@ bindAgents('agents-adv', renderAdv);
 bindFounder();
 // Data per brand (CS AI, riwayat agen) ikut berganti sendiri: switchBrand memanggil show() → viewHooks di atas.
 
-window.timAgents = { AGENTS, TEAM, openAgent, verdict, generate, chat, parseJson, brandCtx, toPlanner };
+window.timAgents = { AGENTS, TEAM, openAgent, verdict, generate, chat, parseJson, brandCtx, toPlanner, loadConductorCatalog };

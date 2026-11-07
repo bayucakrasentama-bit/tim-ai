@@ -13,7 +13,8 @@ import { aiRouterRoutes } from './ai-router.js';
 import { opsRoutes, notifyFailedPosts } from './ops.js';
 import { founderRoutes, runFounderBriefs } from './founder.js';
 import { brandStoreRoutes } from './brand-store.js';
-import { brandScope, teamRoutes } from './team.js';
+import { teamRoutes, brandScope } from './team.js';
+import { conductorRoutes } from './conductor.js';
 import { plannerRoutes, syncContentWithPost, unlinkPost } from './planner.js';
 import { analyticsRoutes, syncIfStale } from './analytics.js';
 import { aiRoutes, aiEnabled } from './ai.js';
@@ -166,6 +167,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   app.get('/api/platforms', (_req, res) => res.json(platformInfo().map((p) => ({ ...p, guide: guides[p.id] || null }))));
   oauthRoutes(app, db);
   teamRoutes(app, db, { ownerUsername: username, authEnabled: auth.enabled, scope });
+  conductorRoutes(app, db, scope);
   plannerRoutes(app, db, scope, { storage, upload });
   analyticsRoutes(app, db, connectors, scope, { ownerUsername: username });
   aiRoutes(app, db, scope);

@@ -9,9 +9,15 @@ const ROOT = fileURLToPath(new URL('../public/', import.meta.url));
 const PORT = Number(process.env.PORT) || 5178;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const content = [];
+const conductorCatalogs = new Map();
 
 function aiReply({ system = '', prompt = '' }) {
   if (system.includes('Conductor')) {
+    if (/Perintah owner: "Jalankan agen SLA Watcher/i.test(prompt)) return JSON.stringify({
+      summary: 'Jalankan SLA Watcher pada antrean yang diberikan.',
+      steps: [{ agent: 'custom-sla-watcher', why: 'Mengurutkan tiket berdasarkan risiko SLA', values: { tickets: 'Tiket #1: 4 jam menunggu; Tiket #2: 30 menit menunggu.' } }],
+      tasks: [], schedule: null, proposals: { teams: [], agents: [] },
+    });
     return JSON.stringify({
       summary: '**Rencana launching** — 1) Tim Digital susun produk & LP, 2) Tim Konten siapkan identitas, 3) Tim ADV siapkan hook & rules sebelum iklan jalan.',
       steps: [
@@ -21,6 +27,10 @@ function aiReply({ system = '', prompt = '' }) {
       ],
       tasks: [{ team: 'konten', title: 'Konten teaser launching', detail: '5 video teaser', due: 'Senin' }, { team: 'adv', title: 'Setup campaign launching', detail: 'Budget uji Rp300rb/hari', due: 'Rabu' }],
       schedule: { when: 'Setiap hari 08.00', what: 'Laporan pagi penjualan eBook ke WhatsApp owner' },
+      proposals: /buat divisi|buat agen baru/i.test(prompt) ? {
+        teams: [{ id: 'custom-customer-ops', label: 'Customer Ops', icon: '🛟' }],
+        agents: [{ id: 'custom-sla-watcher', team: 'custom-customer-ops', name: 'SLA Watcher', role: 'Memantau antrean dan SLA', desc: 'Mengidentifikasi tiket berisiko terlambat', fields: [{ k: 'tickets', label: 'Data tiket', req: true, rows: 4 }], sys: 'Kamu analis operasional customer service.', out: '## Tiket prioritas\n## Tindakan' }],
+      } : { teams: [], agents: [] },
     });
   }
   if (system.includes('Customer Service')) {
@@ -38,11 +48,27 @@ function aiReply({ system = '', prompt = '' }) {
 
 async function apiRoute(req, url, body) {
   const p = url.pathname;
+  if (p === '/api/conductor/catalog') {
+    const brandId = req.headers['x-brand-id'] || '1';
+    const current = conductorCatalogs.get(String(brandId)) || { teams: [], agents: [] };
+    const canManage = ['owner', 'admin'].includes(process.env.MOCK_ROLE || 'owner');
+    if (req.method === 'POST') {
+      const teams = [...current.teams, ...(body?.teams || [])];
+      const agents = [...current.agents, ...(body?.agents || [])];
+      const next = { teams, agents };
+      conductorCatalogs.set(String(brandId), next);
+      return { ...next, canManage };
+    }
+    return { ...current, canManage };
+  }
   if (p === '/api/config') return { auth: false, ai: true };
   if (p === '/api/me') return { user: { id: 1, username: 'demo', role: process.env.MOCK_ROLE || 'owner', team: process.env.MOCK_TEAM || 'semua' }, brands: [{ id: 1, name: 'HerbalDrink', description: 'Minuman herbal kemasan untuk pekerja kantoran' }] };
   if (p === '/api/platforms') return [{ id: 'instagram', label: 'Instagram', supports: ['text', 'image', 'video'], fields: [] }];
-  if (p === '/api/ai/status') return { enabled: true, provider: 'mock', model: 'mock-1' };
+  if (p === '/api/ai/status') return { enabled: true, provider: 'gemini', model: 'mock-1', gemini: { personal: false, workspace: false, model: 'mock-1' }, claude: { configured: false } };
+  if (p === '/api/ai/content-options') return { gemini: { configured: true, model: 'mock-1' }, openai: { configured: false, model: null } };
+  if (p === '/api/ai/ideas') return { ideas: [{ title: 'Contoh lokal: ' + (body?.brief || 'Ide konten'), pillar: 'Edukasi', format: 'Reels', platform: 'Instagram', hook: 'Hook uji lokal', angle: 'Uji UI', script: 'Script dari mock, bukan AI', caption: 'Caption uji lokal', cta: 'Coba sekarang', hashtags: ['#uji'] }] };
   if (p === '/api/ai/chat') return { text: aiReply(body || {}) };
+  if (p === '/api/content/bulk' && req.method === 'POST') { const items = body?.items || []; content.push(...items.map((item, i) => ({ ...item, id: content.length + i + 1 }))); return { count: items.length }; }
   if (p === '/api/content' && req.method === 'POST') { const it = { id: content.length + 1, ...body }; content.push(it); return it; }
   if (p === '/api/content') return content;
   if (p.startsWith('/api/reports/team/')) return { team: p.split('/').pop(), spend: 850000, revenue: 1785000, roas: 2.1 };
