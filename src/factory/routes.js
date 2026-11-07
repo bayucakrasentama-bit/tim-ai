@@ -85,6 +85,8 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const id = Number(req.params.id);
     return Number.isInteger(id) ? db.get('SELECT * FROM factory_products WHERE id = ? AND brand_id = ?', id, req.brand.id) : null;
   };
+  // Profil nggak lagi disetujui: request yang sudah antre balik menunggu supaya agen nggak produksi dari profil belum disetujui.
+  const unqueueJobs = (productId) => db.run("UPDATE factory_jobs SET status = 'menunggu_profil', updated_at = ? WHERE product_id = ? AND status = 'antre'", now(), productId);
   const reload = async (id) => publicProduct(await db.get('SELECT * FROM factory_products WHERE id = ?', id));
 
   app.get('/api/factory/products', scope, async (req, res) => {
@@ -164,6 +166,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
       "UPDATE factory_products SET profile = ?, status = 'draft', approved_by = NULL, approved_at = NULL, updated_at = ? WHERE id = ?",
       JSON.stringify(profile), now(), row.id,
     );
+    await unqueueJobs(row.id);
     res.json({ product: await reload(row.id) });
   });
 
@@ -181,10 +184,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
       "UPDATE factory_products SET profile = ?, product_image = ?, label_image = ?, status = 'draft', approved_by = NULL, approved_at = NULL, updated_at = ? WHERE id = ?",
       JSON.stringify(b.profile), pi, li, now(), row.id,
     );
-    // Profil nggak lagi disetujui: request yang sudah antre balik menunggu supaya agen nggak produksi dari profil belum disetujui.
-    if (row.status === 'approved') {
-      await db.run("UPDATE factory_jobs SET status = 'menunggu_profil', updated_at = ? WHERE product_id = ? AND status = 'antre'", now(), row.id);
-    }
+    if (row.status === 'approved') await unqueueJobs(row.id);
     res.json({ product: await reload(row.id) });
   });
 
@@ -263,10 +263,15 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     if (!allowed.includes(j.status)) {
       return err(res, 400, j.status === 'selesai' && !from ? 'Request yang sudah selesai nggak bisa dibatalkan' : `Request berstatus "${j.status}" nggak bisa di-${action}`);
     }
+    // Kembali ke antre cuma kalau produknya approved; kalau tidak, menunggu_profil.
+    const toSql = to === 'antre'
+      ? "CASE WHEN (SELECT status FROM factory_products WHERE id = factory_jobs.product_id) = 'approved' THEN 'antre' ELSE 'menunggu_profil' END"
+      : '?';
+    const toArgs = to === 'antre' ? [] : [to];
     // Atomik: hanya berubah kalau status masih sama seperti yang dicek (agen/user lain bisa mengubahnya bersamaan).
     const rows = await db.run(
-      `UPDATE factory_jobs SET status = ?, updated_at = ?${extra} WHERE id = ? AND brand_id = ? AND status IN (${allowed.map(() => '?').join(',')}) RETURNING id`,
-      to, now(), j.id, req.brand.id, ...allowed,
+      `UPDATE factory_jobs SET status = ${toSql}, updated_at = ?${extra} WHERE id = ? AND brand_id = ? AND status IN (${allowed.map(() => '?').join(',')}) RETURNING id`,
+      ...toArgs, now(), j.id, req.brand.id, ...allowed,
     );
     if (!rows.length) return err(res, 409, 'Status request sudah berubah, muat ulang');
     res.json({ job: await reloadJob(j.id) });

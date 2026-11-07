@@ -213,3 +213,30 @@ test('isolasi brand: brand B tidak melihat produk/job brand A', async () => {
   assert.equal((await callB('POST', '/api/factory/jobs', { product_id: p.id, target: 5, cta: 'kerkun', footage_url: FOLDER })).status, 404);
   assert.equal((await t.db.get('SELECT status FROM factory_jobs WHERE id = ?', j.id)).status, 'antre');
 });
+
+// ---- Fix round 2 ----
+test('draft AI pada produk approved: job antre -> menunggu_profil', async () => {
+  const p = await approvedProduct('Madu DraftAntre');
+  const j = (await job(p.id)).body.job;
+  assert.equal(j.status, 'antre');
+  setAskForTests(async () => fixture());
+  try { assert.equal((await t.call('POST', `/api/factory/products/${p.id}/draft`)).status, 200); } finally { setAskForTests(null); }
+  assert.equal((await t.db.get('SELECT status FROM factory_jobs WHERE id = ?', j.id)).status, 'menunggu_profil');
+});
+
+test('resume dan retry job dari produk draft -> menunggu_profil', async () => {
+  const p = await approvedProduct('Madu ResumeDraft');
+  const j = (await job(p.id)).body.job;
+  await t.call('POST', `/api/factory/jobs/${j.id}/pause`);
+  await t.call('PUT', `/api/factory/products/${p.id}`, { profile: fixture() }); // produk jadi draft
+  const r = await t.call('POST', `/api/factory/jobs/${j.id}/resume`);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.job.status, 'menunggu_profil');
+  await t.db.run("UPDATE factory_jobs SET status = 'gagal', message = 'x' WHERE id = ?", j.id);
+  const r2 = await t.call('POST', `/api/factory/jobs/${j.id}/retry`);
+  assert.equal(r2.body.job.status, 'menunggu_profil');
+  assert.equal(r2.body.job.message, null);
+  await t.call('POST', `/api/factory/products/${p.id}/approve`);
+  await t.db.run("UPDATE factory_jobs SET status = 'gagal' WHERE id = ?", j.id);
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/retry`)).body.job.status, 'antre');
+});
