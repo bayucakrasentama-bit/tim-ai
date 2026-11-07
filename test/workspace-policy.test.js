@@ -41,8 +41,9 @@ test('teams requested by owner are not accidentally granted admin role', () => {
   assert.ok(TEAMS.includes('medsos') && TEAMS.includes('kol') && TEAMS.includes('affiliate'));
 });
 
-test('requested two-letter username mp is accepted without admitting other short names', () => {
+test('requested two-letter team usernames are accepted without admitting other short names', () => {
   assert.equal(validUsername('mp'), true);
+  assert.equal(validUsername('cs'), true);
   assert.equal(validUsername('ab'), false);
   assert.equal(validUsername('konten'), true);
 });

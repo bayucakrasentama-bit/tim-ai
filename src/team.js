@@ -8,7 +8,7 @@ import { ownerEmail, validEmail } from './google-login.js';
 // lead = Lead/Supervisor: lintas divisi & berhak Approve / Request Revision kartu Planner (tidak kelola tim).
 const ROLES = ['admin', 'lead', 'member'];
 const cleanName = (s) => String(s ?? '').trim();
-export const validUsername = (name) => name === 'mp' || /^[a-z0-9._-]{3,32}$/.test(name);
+export const validUsername = (name) => name === 'mp' || name === 'cs' || /^[a-z0-9._-]{3,32}$/.test(name);
 
 export async function brandsFor(db, user) {
   if (canManage(user)) return db.all('SELECT * FROM brands ORDER BY id');
@@ -116,7 +116,7 @@ export function teamRoutes(app, db, { ownerUsername, authEnabled, scope }) {
     const password = String(req.body?.password || '');
     const role = ROLES.includes(req.body?.role) ? req.body.role : 'member';
     const team = TEAMS.includes(req.body?.team) ? req.body.team : 'semua';
-    if (!validUsername(username)) return res.status(400).json({ error: 'Username minimal 3 karakter (kecuali mp): huruf kecil, angka, titik, strip, atau garis bawah' });
+    if (!validUsername(username)) return res.status(400).json({ error: 'Username minimal 3 karakter (kecuali mp/cs): huruf kecil, angka, titik, strip, atau garis bawah' });
     if (username === ownerUsername.toLowerCase()) return res.status(400).json({ error: 'Username ini dipakai pemilik' });
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (email && !validEmail(email)) return res.status(400).json({ error: 'Email Google tidak valid' });
