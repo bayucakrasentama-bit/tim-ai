@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { getSetting, now } from '../db.js';
 import { askClaude } from '../ai.js';
 import { canManage } from '../auth.js';
-import { slugify, validateProfile, PROFILE_FIELDS } from './profile.js';
+import { slugify, parseFolderId, validateProfile, PROFILE_FIELDS } from './profile.js';
 
 let ask = askClaude;
 // Tes mengganti pemanggil AI; null mengembalikan yang asli.
@@ -195,5 +195,68 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const url = req.body?.url;
     if (url && storage?.kind === 'blob' && storage.isOwnUrl(url)) return res.json({ url });
     err(res, 400, 'Pilih gambar dulu');
+  });
+
+  // ---- Request produksi + antrean ----
+  const getJob = async (req) => {
+    const id = Number(req.params.id);
+    return Number.isInteger(id) ? db.get('SELECT * FROM factory_jobs WHERE id = ? AND brand_id = ?', id, req.brand.id) : null;
+  };
+  const reloadJob = (id) => db.get('SELECT * FROM factory_jobs WHERE id = ?', id);
+  const setStatus = (id, status, extra = '') => db.run(`UPDATE factory_jobs SET status = ?, updated_at = ?${extra} WHERE id = ?`, status, now(), id);
+
+  // Antrean FIFO lintas brand: prioritas tertinggi dulu, lalu id terkecil.
+  app.get('/api/factory/jobs', scope, async (req, res) => {
+    const rows = await db.all(
+      'SELECT j.*, p.name AS product_name FROM factory_jobs j LEFT JOIN factory_products p ON p.id = j.product_id WHERE j.brand_id = ? ORDER BY j.id DESC',
+      req.brand.id,
+    );
+    const queue = await db.all("SELECT id FROM factory_jobs WHERE status = 'antre' ORDER BY priority DESC, id ASC");
+    const pos = new Map(queue.map((q, i) => [Number(q.id), i + 1]));
+    res.json({
+      jobs: rows.map((j) => ({ ...j, queue_position: j.status === 'antre' ? pos.get(Number(j.id)) ?? null : null })),
+      agent: await agentState(db),
+    });
+  });
+
+  app.post('/api/factory/jobs', scope, async (req, res) => {
+    const b = req.body || {};
+    const target = typeof b.target === 'string' && b.target.trim() !== '' ? Number(b.target) : b.target;
+    if (!Number.isInteger(target) || target < 1 || target > 20000) return err(res, 400, 'Target harus bilangan bulat 1 sampai 20.000');
+    if (!['kerkun', 'awareness', 'campur'].includes(b.cta)) return err(res, 400, 'CTA harus kerkun, awareness, atau campur');
+    const footage = String(b.footage_url || '').trim();
+    if (!parseFolderId(footage)) return err(res, 400, 'Link harus folder Google Drive');
+    const product = await db.get('SELECT * FROM factory_products WHERE id = ? AND brand_id = ?', Number(b.product_id), req.brand.id);
+    if (!product) return err(res, 404, 'Produk nggak ketemu');
+    const t = now();
+    const [row] = await db.run(
+      'INSERT INTO factory_jobs (brand_id, product_id, target, cta, footage_url, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      req.brand.id, product.id, target, b.cta, footage, product.status === 'approved' ? 'antre' : 'menunggu_profil', req.user.username, t, t,
+    );
+    res.json({ job: await reloadJob(row.id) });
+  });
+
+  const transition = (action, from, to, extra = '') => app.post(`/api/factory/jobs/:id/${action}`, scope, async (req, res) => {
+    const j = await getJob(req);
+    if (!j) return err(res, 404, 'Request nggak ketemu');
+    if (from && !from.includes(j.status)) return err(res, 400, `Request berstatus "${j.status}" nggak bisa di-${action}`);
+    if (!from && j.status === 'selesai') return err(res, 400, 'Request yang sudah selesai nggak bisa dibatalkan');
+    await setStatus(j.id, to, extra);
+    res.json({ job: await reloadJob(j.id) });
+  });
+  // Agen tahu lewat commands heartbeat / action progress, yang dibaca dari status di DB.
+  transition('pause', ['antre', 'menyiapkan', 'produksi'], 'dijeda');
+  transition('resume', ['dijeda'], 'antre');
+  transition('cancel', null, 'dibatalkan');
+  transition('retry', ['gagal'], 'antre', ', message = NULL');
+
+  app.post('/api/factory/jobs/:id/priority', scope, async (req, res) => {
+    if (!canManage(req.user)) return err(res, 403, 'Cuma pemilik/admin yang bisa mengubah prioritas');
+    const j = await getJob(req);
+    if (!j) return err(res, 404, 'Request nggak ketemu');
+    const priority = req.body?.priority;
+    if (typeof priority !== 'number' || !Number.isInteger(priority)) return err(res, 400, 'Prioritas harus bilangan bulat');
+    await db.run('UPDATE factory_jobs SET priority = ?, updated_at = ? WHERE id = ?', priority, now(), j.id);
+    res.json({ job: await reloadJob(j.id) });
   });
 }

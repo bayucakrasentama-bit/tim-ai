@@ -58,3 +58,82 @@ test('draft AI: klaim resmi user tidak boleh diubah', async () => {
     assert.ok(seen.schema && seen.system);
   } finally { setAskForTests(null); }
 });
+
+// ---- Task 3: request produksi + antrean ----
+const FOLDER = 'https://drive.google.com/drive/folders/1AbC_d-9?usp=sharing';
+const job = (product_id, extra = {}) => t.call('POST', '/api/factory/jobs', { product_id, target: 5, cta: 'kerkun', footage_url: FOLDER, ...extra });
+async function approvedProduct(name) {
+  const { body: { product } } = await mk(name);
+  await t.call('PUT', `/api/factory/products/${product.id}`, { profile: fixture(), product_image: '/uploads/a.png', label_image: '/uploads/b.png' });
+  await t.call('POST', `/api/factory/products/${product.id}/approve`);
+  return product;
+}
+
+test('job: validasi target, cta, link footage', async () => {
+  const p = await approvedProduct('Madu Valid');
+  for (const target of [0, 20001, 'abc', 1.5]) assert.equal((await job(p.id, { target })).status, 400, String(target));
+  const bad = await job(p.id, { footage_url: 'https://drive.google.com/file/d/X/view' });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.body.error, 'Link harus folder Google Drive');
+  assert.equal((await job(p.id, { cta: 'promo' })).status, 400);
+  assert.equal((await job(999999)).status, 404);
+  assert.equal((await job(p.id, { target: 20000, cta: 'awareness' })).status, 200);
+  assert.equal((await job(p.id, { cta: 'campur' })).body.job.cta, 'campur');
+});
+
+test('job produk draft: menunggu_profil, jadi antre setelah approve', async () => {
+  const { body: { product } } = await mk('Madu Menunggu');
+  const r = await job(product.id);
+  assert.equal(r.body.job.status, 'menunggu_profil');
+  await t.call('PUT', `/api/factory/products/${product.id}`, { profile: fixture(), product_image: '/uploads/a.png', label_image: '/uploads/b.png' });
+  await t.call('POST', `/api/factory/products/${product.id}/approve`);
+  const list = await t.call('GET', '/api/factory/jobs');
+  assert.equal(list.body.jobs.find((j) => j.id === r.body.job.id).status, 'antre');
+});
+
+test('queue_position memperhitungkan prioritas', async () => {
+  await t.db.run("UPDATE factory_jobs SET status = 'selesai'");
+  const p = await approvedProduct('Madu Antrean');
+  const a = (await job(p.id)).body.job;
+  const b = (await job(p.id)).body.job;
+  let list = (await t.call('GET', '/api/factory/jobs')).body.jobs;
+  assert.equal(list.find((j) => j.id === a.id).queue_position, 1);
+  assert.equal(list.find((j) => j.id === b.id).queue_position, 2);
+  assert.equal(list.find((j) => j.id === a.id).product_name, 'Madu Antrean');
+  assert.equal((await t.call('POST', `/api/factory/jobs/${b.id}/priority`, { priority: 5 })).status, 200);
+  assert.equal((await t.call('POST', `/api/factory/jobs/${b.id}/priority`, { priority: 'x' })).status, 400);
+  list = (await t.call('GET', '/api/factory/jobs')).body.jobs;
+  assert.equal(list.find((j) => j.id === b.id).queue_position, 1);
+  assert.equal(list.find((j) => j.id === a.id).queue_position, 2);
+  assert.equal(list.find((j) => j.status === 'selesai').queue_position, null);
+});
+
+test('pause, resume, cancel, retry', async () => {
+  const p = await approvedProduct('Madu Aksi');
+  const j = (await job(p.id)).body.job;
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/pause`)).body.job.status, 'dijeda');
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/pause`)).status, 400);
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/resume`)).body.job.status, 'antre');
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/retry`)).status, 400);
+  await t.db.run("UPDATE factory_jobs SET status = 'gagal', message = 'rusak' WHERE id = ?", j.id);
+  const r = await t.call('POST', `/api/factory/jobs/${j.id}/retry`);
+  assert.equal(r.body.job.status, 'antre');
+  assert.equal(r.body.job.message, null);
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/cancel`)).body.job.status, 'dibatalkan');
+  await t.db.run("UPDATE factory_jobs SET status = 'selesai' WHERE id = ?", j.id);
+  assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/cancel`)).status, 400);
+  assert.equal((await t.call('POST', '/api/factory/jobs/999999/cancel')).status, 404);
+});
+
+test('agent: offline tanpa heartbeat, online kalau < 120 dtk', async () => {
+  const { setSetting } = await import('../src/db.js');
+  const { agentState } = await import('../src/factory/routes.js');
+  await t.db.run("DELETE FROM settings WHERE key = 'factory:agent'");
+  assert.equal((await t.call('GET', '/api/factory/jobs')).body.agent.online, false);
+  await setSetting(t.db, 'factory:agent', JSON.stringify({ state: 'idle', job_id: null, drive_free_gb: 50, seen_at: new Date().toISOString() }));
+  const a = (await t.call('GET', '/api/factory/jobs')).body.agent;
+  assert.equal(a.online, true);
+  assert.equal(a.drive_free_gb, 50);
+  await setSetting(t.db, 'factory:agent', JSON.stringify({ state: 'idle', seen_at: new Date(Date.now() - 130e3).toISOString() }));
+  assert.equal((await agentState(t.db)).online, false);
+});
