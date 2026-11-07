@@ -1,0 +1,203 @@
+{
+  "name": "Madu Zestmag",
+  "short": "Zestmag",
+  "tts_name": "Madu Zestmag",
+  "file_prefix": "ZM",
+  "official_claim": "meringankan gangguan pencernaan, perut mual & kembung",
+  "brand_lock": {
+    "Zestmag": [
+      "zest mag",
+      "zest-mag",
+      "zestmag",
+      "zesmag",
+      "zestmak",
+      "zest mac",
+      "zestmac",
+      "jestmag",
+      "sestmag"
+    ]
+  },
+  "tts_lexicon": {
+    "Zestmag": "Zes-mag"
+  },
+  "other_brands": [
+    "gurahfit",
+    "gurah fit"
+  ],
+  "label_regex": "zest",
+  "facts": [
+    "Madu dengan racikan herbal khusus untuk kenyamanan lambung",
+    "Bantu bikin perut terasa lebih nyaman setelah makan pedas, bersantan, atau ngopi",
+    "Bukan obat, dikonsumsi rutin sebagai pendamping pola makan",
+    "Rasa madu, bisa diminum langsung",
+    "Tersedia di keranjang kuning TikTok Shop",
+    "Klaim resmi di label: meringankan gangguan pencernaan, perut mual & kembung"
+  ],
+  "audience": "Orang Indonesia 20-50 tahun yang perutnya sering nggak nyaman: perih, begah, kembung, mual, perut terasa panas setelah makan pedas/bersantan/ngopi atau telat makan. Pecinta pedas & santan, pecinta kopi, pekerja sibuk, yang suka makan malam.",
+  "angles": [
+    "habis makan pedas perut langsung perih",
+    "makan santan (gulai, opor, rendang) langsung begah",
+    "kopi pagi bikin perut melilit",
+    "telat makan karena sibuk kerja",
+    "perut kembung dan begah setelah makan",
+    "dada terasa panas habis makan berat",
+    "makan malam bikin tidur nggak nyenyak",
+    "capek tiap habis makan enak perut langsung protes",
+    "takut makan enak waktu kumpul atau nongkrong",
+    "milih-milih makanan karena lambung sensitif",
+    "perut mual pagi hari",
+    "stres kerja bikin perut nggak enak",
+    "anak kos makan nggak teratur",
+    "mitos vs fakta soal lambung",
+    "rutinitas: sedia madu sebelum makan berat"
+  ],
+  "hook_styles": [
+    "pertanyaan relate yang menohok",
+    "larangan / warning (Stop..., Jangan...)",
+    "fakta mengejutkan",
+    "cerita POV orang pertama",
+    "mitos vs fakta",
+    "kontras (enak di mulut, perih di lambung)"
+  ],
+  "cta_variants": [
+    "Cek keranjang kuning sekarang",
+    "Klik keranjang kuning di bawah ini",
+    "Langsung checkout di keranjang kuning ya",
+    "Yuk cobain, ada di keranjang kuning",
+    "Tap keranjang kuning buat lihat detailnya"
+  ],
+  "badge_texts": [
+    "Cek Keranjang Kuning",
+    "Klik Keranjang Kuning",
+    "Checkout Sekarang",
+    "Ada di Keranjang Kuning"
+  ],
+  "compliance": {
+    "banned_phrases": [
+      "100%",
+      "100% ampuh",
+      "ajaib",
+      "ampuh",
+      "asam lambung",
+      "asam lambung naik parah",
+      "asam lambungnya",
+      "asam naik",
+      "asma",
+      "bonus",
+      "bpom",
+      "bronkitis",
+      "cashback",
+      "detoks",
+      "detox",
+      "dijamin",
+      "diskon",
+      "dokter",
+      "efektif",
+      "flash sale",
+      "garansi",
+      "gerd",
+      "gratis",
+      "harga",
+      "infeksi",
+      "instan",
+      "jaminan sembuh",
+      "kehabisan",
+      "klinis",
+      "kronis",
+      "lambung bocor",
+      "lambung luka",
+      "lambung rusak",
+      "langsung hilang",
+      "luka lambung",
+      "maag",
+      "maag kronis",
+      "manjur",
+      "medis",
+      "menahun",
+      "mengobati",
+      "menyembuhkan",
+      "mujarab",
+      "murah",
+      "no 1",
+      "nomor 1",
+      "obat",
+      "ongkir",
+      "paling ampuh",
+      "paling bagus",
+      "paling manjur",
+      "penyakit",
+      "penyembuh",
+      "permanen",
+      "promo",
+      "racun",
+      "radang",
+      "refluks",
+      "sembuh",
+      "sinusitis",
+      "stok",
+      "tanpa efek samping",
+      "terapi",
+      "terbaik nomor 1",
+      "terbukti",
+      "tukak"
+    ],
+    "rules": [
+      "Klaim manfaat hanya boleh: meringankan gangguan pencernaan, bantu redakan perut mual & kembung, bikin perut terasa lebih nyaman.",
+      "Selalu pakai kata pelunak: bantu / membantu / meringankan / terasa.",
+      "AMAN KERANJANG KUNING: JANGAN sebut nama penyakit/diagnosis (maag, GERD, asam lambung, radang, dll). Gambarkan keluhan sehari-hari saja: perut perih, begah, kembung, mual, perut panas, ulu hati nggak nyaman, dada terasa panas setelah makan.",
+      "JANGAN menjanjikan kesembuhan, jangan menyebut obat/dokter/terbukti/paling, jangan menyuruh berhenti minum obat.",
+      "JANGAN menyebut promo, diskon, harga, gratis ongkir, stok terbatas/habis, atau urgensi palsu.",
+      "Jangan menjelekkan merek lain."
+    ],
+    "replacements": {
+      "langsung sembuh": "kerasa lebih nyaman",
+      "langsung hilang": "kerasa lebih nyaman",
+      "menyembuhkan": "bantu bikin lebih nyaman",
+      "mengobati": "bantu bikin lebih nyaman",
+      "100% ampuh": "kerasa bedanya kalau diminum rutin",
+      "dijamin": "menurut pengalamanku",
+      "secara instan": "kalau diminum rutin"
+    }
+  },
+  "palette": {
+    "primary": "#F28C28",
+    "highlight": "#FFC93C",
+    "cta": "#E8452C",
+    "cream": "#FFF3E3",
+    "ink": "#161210",
+    "white": "#FFFFFF"
+  },
+  "safe_hashtags": [
+    "#perutnyaman",
+    "#perutadem",
+    "#maduzestmag",
+    "#makanenak"
+  ],
+  "story": {
+    "category": "Madu Herbal Lambung & Pencernaan",
+    "daily_pain_points": [
+      "perut sering kerasa begah dan perih pas telat makan dikit",
+      "habis ngopi atau makan pedes dikit langsung nggak nyaman di ulu hati",
+      "sering kebangun tengah malem gara-gara perut kerasa penuh dan mual",
+      "kerjaan berantakan karena fokus buyar pas perut mulai melilit",
+      "mau makan enak bareng keluarga tapi takut perut kumat lagi"
+    ],
+    "physical_features": [
+      "tekstur madunya kental dengan perpaduan ekstrak herbal kunyit dan kayu manis",
+      "rasanya manis hangat dan nggak bikin eneg pas ditelan",
+      "kemasan botolnya praktis dan aman dibawa ke kantor",
+      "komposisi herbal alaminya kerasa hangat langsung ke perut"
+    ],
+    "safe_benefits": [
+      "perut jadi kerasa jauh lebih adem dan nyaman buat beraktivitas",
+      "bantu ngurangin rasa begah sehabis makan berat",
+      "rutinitas pagi jadi lebih tenang tanpa drama perut perih",
+      "badan kerasa lebih enakan pas bangun pagi"
+    ],
+    "usage_moments": [
+      "diminum rutin 1 sendok makan sebelum makan pagi dan malam",
+      "diseduh pakai air hangat pas perut mulai kerasa nggak enak",
+      "jadi stok wajib di meja kerja buat jaga-jaga kalau telat makan"
+    ]
+  }
+}

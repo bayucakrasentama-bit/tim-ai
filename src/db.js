@@ -505,6 +505,41 @@ created_at TEXT NOT NULL
     key TEXT PRIMARY KEY,
     value TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS factory_products (
+    id ${idType},
+    brand_id INTEGER NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    profile TEXT NOT NULL,
+    product_image TEXT,
+    label_image TEXT,
+    created_by TEXT,
+    approved_by TEXT,
+    approved_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS factory_jobs (
+    id ${idType},
+    brand_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    target INTEGER NOT NULL,
+    cta TEXT NOT NULL,
+    footage_url TEXT NOT NULL,
+    status TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 0,
+    done INTEGER NOT NULL DEFAULT 0,
+    failed INTEGER NOT NULL DEFAULT 0,
+    drive_url TEXT,
+    message TEXT,
+    eta_at TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT
+  )`,
 ];
 
 // Kolom yang ditambahkan setelah versi pertama (database lama di-upgrade otomatis).
