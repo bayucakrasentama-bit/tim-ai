@@ -10,6 +10,7 @@ export const NOTIFY_EVENTS = {
   approve: 'Kartu di-approve',
   post_failed: 'Post gagal / sebagian gagal',
   founder_brief: 'Laporan pagi (Kantor AI)',
+  factory_done: 'Motion Factory selesai/gagal',
 };
 const key = (brandId) => `notify:${brandId}`;
 

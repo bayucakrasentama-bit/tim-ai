@@ -1,0 +1,129 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { startApp } from './helpers.js';
+import { setNotifyForTests } from '../src/factory/agent-routes.js';
+
+const TOKEN = 'tok-rahasia-123';
+const FOLDER = 'https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz';
+const fixture = () => JSON.parse(fs.readFileSync(new URL('./fixtures/zestmag-profile.json', import.meta.url), 'utf8'));
+let t; let sent = [];
+const A = { authorization: `Bearer ${TOKEN}` };
+const agent = (m, url, body) => t.call(m, `/api/factory/agent${url}`, body, A);
+let n = 0;
+const approvedProduct = async () => {
+  const { body: { product } } = await t.call('POST', '/api/factory/products', { name: `Produk Agen ${++n}`, category: 'x', official_claim: 'membantu daya tahan tubuh' });
+  await t.call('PUT', `/api/factory/products/${product.id}`, { profile: fixture(), product_image: '/uploads/a.png', label_image: '/uploads/b.png' });
+  const ok = await t.call('POST', `/api/factory/products/${product.id}/approve`);
+  assert.equal(ok.status, 200);
+  return product;
+};
+const mkJob = async (product, extra = {}) => (await t.call('POST', '/api/factory/jobs', { product_id: product.id, target: 5, cta: 'kerkun', footage_url: FOLDER, ...extra })).body.job;
+const reset = () => t.db.run("UPDATE factory_jobs SET status = 'selesai'");
+const row = (id) => t.db.get('SELECT * FROM factory_jobs WHERE id = ?', id);
+
+before(async () => { t = await startApp({ factoryToken: TOKEN }); setNotifyForTests(async (...a) => { sent.push(a); return { sent: 1 }; }); });
+after(async () => { setNotifyForTests(null); await t.close(); });
+
+test('token: tanpa header / salah -> 401', async () => {
+  assert.equal((await t.call('POST', '/api/factory/agent/claim', {})).status, 401);
+  assert.equal((await t.call('POST', '/api/factory/agent/claim', {}, { authorization: 'Bearer salah' })).status, 401);
+  assert.equal((await t.call('GET', '/api/factory/agent/peek', undefined, { authorization: 'Bearer ' })).status, 401);
+});
+
+test('FACTORY_AGENT_TOKEN kosong -> semua 401', async () => {
+  const t2 = await startApp({ factoryToken: '' });
+  try {
+    for (const h of [{}, { authorization: 'Bearer ' }, { authorization: 'Bearer x' }]) {
+      assert.equal((await t2.call('POST', '/api/factory/agent/claim', {}, h)).status, 401);
+    }
+  } finally { await t2.close(); }
+});
+
+test('claim: antrean kosong -> null; peek false', async () => {
+  assert.deepEqual((await agent('POST', '/claim', {})).body, { job: null });
+  assert.deepEqual((await agent('GET', '/peek')).body, { waiting: false });
+});
+
+test('claim: prioritas, menyiapkan, profil objek, resume, progress monoton, pause, heartbeat, done', async () => {
+  const p = await approvedProduct();
+  const a = await mkJob(p); const b = await mkJob(p);
+  await t.call('POST', `/api/factory/jobs/${b.id}/priority`, { priority: 5 });
+  assert.deepEqual((await agent('GET', '/peek')).body, { waiting: true });
+  const c1 = (await agent('POST', '/claim', {})).body.job;
+  assert.equal(c1.id, b.id);
+  assert.equal(typeof c1.product.profile, 'object');
+  assert.equal(c1.product.product_image, '/uploads/a.png');
+  assert.equal(c1.product.label_image, '/uploads/b.png');
+  const r = await row(b.id);
+  assert.equal(r.status, 'menyiapkan'); assert.ok(r.started_at);
+  assert.equal((await agent('POST', '/claim', {})).body.job.id, b.id);
+
+  assert.deepEqual((await agent('POST', `/jobs/${b.id}/progress`, { status: 'produksi', done: 10 })).body, { ok: true, action: 'continue' });
+  await agent('POST', `/jobs/${b.id}/progress`, { done: 5 });
+  assert.equal((await row(b.id)).done, 10);
+  assert.equal((await row(b.id)).status, 'produksi');
+
+  await t.call('POST', `/api/factory/jobs/${b.id}/pause`);
+  assert.equal((await agent('POST', `/jobs/${b.id}/progress`, { done: 11, status: 'produksi' })).body.action, 'pause');
+  assert.equal((await row(b.id)).status, 'dijeda');
+  const hb = await agent('POST', '/heartbeat', { state: 'producing', job_id: b.id, drive_free_gb: 50, legacy: null });
+  assert.deepEqual(hb.body, { ok: true, commands: [{ job_id: b.id, action: 'pause' }] });
+  const jobs = await t.call('GET', '/api/factory/jobs');
+  assert.equal(jobs.body.agent.online, true);
+
+  // dibatalkan tidak bangkit
+  await t.call('POST', `/api/factory/jobs/${a.id}/cancel`);
+  assert.equal((await agent('POST', `/jobs/${a.id}/progress`, { status: 'produksi' })).body.action, 'cancel');
+  assert.equal((await agent('POST', `/jobs/${a.id}/done`, { done: 1, drive_url: 'x' })).status, 200);
+  assert.equal((await row(a.id)).status, 'dibatalkan');
+
+  // done
+  await t.db.run("UPDATE factory_jobs SET status = 'produksi' WHERE id = ?", b.id);
+  sent = [];
+  assert.deepEqual((await agent('POST', `/jobs/${b.id}/done`, { done: 3, drive_url: 'https://drive/x' })).body, { ok: true });
+  assert.equal((await row(b.id)).status, 'selesai');
+  assert.ok((await row(b.id)).finished_at);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0][2], 'factory_done');
+  assert.equal(sent[0][3], `✅ Motion Factory: ${p.name} 11 video selesai\nhttps://drive/x`);
+  // done kedua tidak mengirim ulang / tidak mengubah
+  await agent('POST', `/jobs/${b.id}/done`, { done: 3, drive_url: 'y' });
+  assert.equal(sent.length, 1);
+});
+
+test('fail: status gagal + notifikasi; selesai tidak bangkit', async () => {
+  await reset();
+  const p = await approvedProduct();
+  const j = await mkJob(p);
+  await agent('POST', '/claim', {});
+  sent = [];
+  assert.equal((await agent('POST', `/jobs/${j.id}/fail`, { message: 'Drive penuh' })).status, 200);
+  const r = await row(j.id);
+  assert.equal(r.status, 'gagal'); assert.equal(r.message, 'Drive penuh');
+  assert.equal(sent[0][3], `❌ Motion Factory: ${p.name} gagal — Drive penuh`);
+  await t.db.run("UPDATE factory_jobs SET status = 'selesai' WHERE id = ?", j.id);
+  await agent('POST', `/jobs/${j.id}/fail`, { message: 'x' });
+  assert.equal((await row(j.id)).status, 'selesai');
+  assert.equal(sent.length, 1);
+});
+
+test('progress dijeda dari agen (Drive penuh) menyimpan pesan', async () => {
+  await reset();
+  const p = await approvedProduct();
+  const j = await mkJob(p);
+  await agent('POST', '/claim', {});
+  const r = await agent('POST', `/jobs/${j.id}/progress`, { status: 'dijeda', message: 'Drive penuh' });
+  assert.equal(r.body.action, 'pause');
+  const x = await row(j.id);
+  assert.equal(x.status, 'dijeda'); assert.equal(x.message, 'Drive penuh');
+});
+
+test('claim/peek: job antre dengan produk draft tidak diambil', async () => {
+  await reset();
+  const p = await approvedProduct();
+  await mkJob(p);
+  await t.db.run("UPDATE factory_products SET status = 'draft' WHERE id = ?", p.id);
+  assert.deepEqual((await agent('POST', '/claim', {})).body, { job: null });
+  assert.deepEqual((await agent('GET', '/peek')).body, { waiting: false });
+});

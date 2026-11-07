@@ -30,6 +30,7 @@ export async function bootstrap(env = process.env) {
     username: (env.APP_USERNAME || 'admin').trim(),
     password: env.APP_PASSWORD || '',
     cronSecret: env.CRON_SECRET || '',
+    factoryToken: env.FACTORY_AGENT_TOKEN || '',
   });
   return { app, db };
 }

@@ -13,6 +13,7 @@ import { aiRouterRoutes } from './ai-router.js';
 import { opsRoutes, notifyFailedPosts } from './ops.js';
 import { founderRoutes, runFounderBriefs } from './founder.js';
 import { factoryRoutes } from './factory/routes.js';
+import { factoryAgentRoutes } from './factory/agent-routes.js';
 import { brandStoreRoutes } from './brand-store.js';
 import { teamRoutes, brandScope } from './team.js';
 import { conductorRoutes } from './conductor.js';
@@ -46,7 +47,7 @@ const background = (promise) => waitUntil(promise.catch((err) => console.error(e
 
 const mediaKind = (mime) => (mime.startsWith('video/') ? 'video' : mime.startsWith('image/') ? 'image' : null);
 
-export function createApp({ db, connectors, storage, username = 'admin', password = '', cronSecret = '', setupError = '' }) {
+export function createApp({ db, connectors, storage, username = 'admin', password = '', cronSecret = '', setupError = '', factoryToken = '' }) {
   const login = { username, password };
   const app = express();
   app.set('trust proxy', true); // supaya https & host asli terbaca di belakang proxy Vercel
@@ -78,6 +79,8 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   // LP Builder yang sudah diterbitkan (/p/<alamat>), link/QR Integrasi Cepat, dan endpoint MCP (publik, dikunci token).
   lpPublicRoute(app, db);
   connectPublicRoutes(app, db, { ownerUsername: username });
+  // Agen Mac mini (Motion Factory): publik tanpa login, dikunci token Bearer.
+  factoryAgentRoutes(app, db, { token: factoryToken });
   // Webhook chat dari Shopee / TikTok Shop / Lazada / Meta (publik, diverifikasi tanda tangan).
   inboxWebhookRoute(app, db, { background });
 
