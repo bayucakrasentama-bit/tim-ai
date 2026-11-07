@@ -177,6 +177,23 @@ Butuh `ANTHROPIC_API_KEY`. Biaya dihitung per pemakaian di akun Anthropic-mu. Is
 produk, gaya bahasa) supaya hasilnya pas. AI juga membaca data performa di menu Analitik untuk analisa & strategi.
 Pembaca screenshot menerima gambar (PNG/JPG/WEBP, maks 6 sekaligus). Video screen record belum bisa dibaca, jadi ambil screenshot-nya.
 
+## Motion Factory (Mac mini)
+
+Menu **Motion Factory** dipakai untuk request video TikTok massal. TIM-AI cuma menyimpan profil produk & antrean;
+render-nya dikerjakan agen di Mac mini (repo `tiktok-motion-factory`) yang nanya kerjaan ke TIM-AI tiap 30 detik.
+
+1. Bikin token acak minimal 32 karakter, mis. `openssl rand -hex 32`.
+2. Isi env `FACTORY_AGENT_TOKEN` dengan token itu: di Vercel (**Settings → Environment Variables**, lalu redeploy)
+   atau di `.env` kalau TIM-AI jalan lokal. Kosong = semua endpoint agen menolak (401).
+3. Di Mac mini, isi `.env` Motion Factory: `TIM_AI_URL=https://alamat-tim-ai` dan `FACTORY_AGENT_TOKEN=<token yang sama>`,
+   lalu `./run.sh drive-login` sekali dan `./run.sh agent-install` (lihat README Motion Factory).
+4. Kartu status di menu Motion Factory menampilkan **Mac mini online** kalau agen kirim heartbeat < 2 menit terakhir.
+
+Alur produk: buat produk (nama, kategori, klaim resmi di label, foto produk & label) → **Susun pakai AI** → periksa →
+pemilik/admin **Setujui profil**. Request untuk produk yang belum disetujui menunggu (`Nunggu profil`). Edit profil yang sudah
+disetujui (termasuk klaim/kategori) bikin profil balik draft: request yang antre atau sedang jalan ikut ditahan sampai disetujui ulang.
+Endpoint agen ada di `/api/factory/agent/*` (header `Authorization: Bearer <FACTORY_AGENT_TOKEN>`).
+
 ## Versi online (Vercel)
 
 Di Vercel, TIM-AI pakai Neon Postgres (database), Vercel Blob (gambar/video), dan wajib password (`APP_PASSWORD`).
