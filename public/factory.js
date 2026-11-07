@@ -25,7 +25,7 @@ let products = [];
 let jobs = [];
 let agent = null;
 let timer = null;
-let formState = { product_id: '', target: 100, cta: 'campur', footage_url: '' };
+let formState = { product_id: '', target: 100, cta: 'kerkun', footage_url: '' };
 
 async function loadAll() {
   const [p, j] = await Promise.all([api('/api/factory/products'), api('/api/factory/jobs')]);
@@ -38,7 +38,7 @@ function agentCard() {
   const a = agent || {};
   const on = !!a.online;
   const leg = a.legacy && typeof a.legacy === 'object'
-    ? Object.entries(a.legacy).map(([k, v]) => `${esc(k)} ${typeof v === 'object' && v ? `${num(v.done)}/${num(v.target)}` : esc(v)}`).join(' · ') : '';
+    ? Object.entries(a.legacy).map(([k, v]) => `${esc(k)} ${typeof v === 'object' && v ? `${num(v.done)}/${num(v.quota)}` : esc(v)}`).join(' · ') : '';
   return `<div class="card fx-agent ${on ? 'on' : 'off'}">
     <div><span class="fx-dot" aria-hidden="true"></span> <b>${on ? `Mac mini online — sedang ${esc(a.state || 'siaga')}` : 'Mac mini offline — produksi nunggu Mac nyala'}</b></div>
     ${a.drive_free_gb != null ? `<div class="hint">Ruang kosong: ${esc(num(a.drive_free_gb))} GB</div>` : ''}
@@ -80,7 +80,7 @@ function actionsFor(j) {
   if (['antre', 'menyiapkan', 'produksi'].includes(j.status)) out.push(b('pause', 'Jeda'));
   if (j.status === 'dijeda') out.push(b('resume', 'Lanjut'));
   if (['antre', 'menyiapkan', 'produksi', 'dijeda', 'menunggu_profil'].includes(j.status)) out.push(b('cancel', 'Batalkan'));
-  if (['gagal', 'dibatalkan'].includes(j.status)) out.push(b('retry', 'Coba lagi'));
+  if (j.status === 'gagal') out.push(b('retry', 'Coba lagi'));
   if (isAdmin() && ['antre', 'dijeda'].includes(j.status)) out.push(b('prio', '▲ Prioritas'));
   return out.join(' ');
 }
@@ -97,7 +97,7 @@ function jobsCard() {
       <td><span class="pill ${cls}">${esc(label)}</span></td>
       <td class="fx-prog"><div class="fx-bar"><i style="width:${pct}%"></i></div><span class="hint">${num(j.done)}/${num(target)}${j.failed ? ` · gagal ${num(j.failed)}` : ''}</span></td>
       <td>${esc(fmtEta(j.eta_at))}</td>
-      <td>${j.drive_url ? `<a href="${esc(j.drive_url)}" target="_blank" rel="noopener">Drive</a>` : '–'}</td>
+      <td>${j.drive_url ? (String(j.drive_url).startsWith('https://') ? `<a href="${esc(j.drive_url)}" target="_blank" rel="noopener">Drive</a>` : esc(j.drive_url)) : '–'}</td>
       <td class="fx-msg">${esc(j.message || '')}</td>
       <td class="fx-acts">${actionsFor(j)}</td></tr>`;
   }).join('');
@@ -140,7 +140,7 @@ S.viewHooks.factory = async () => {
 function readForm() {
   const f = $('#fx-form');
   if (!f) return;
-  formState = { product_id: f.product_id.value === '__new' ? '' : f.product_id.value, target: f.target.value, cta: f.cta.value || 'campur', footage_url: f.footage_url.value };
+  formState = { product_id: f.product_id.value === '__new' ? '' : f.product_id.value, target: f.target.value, cta: f.cta.value || 'kerkun', footage_url: f.footage_url.value };
 }
 
 // ---------- Aksi ----------
@@ -199,7 +199,7 @@ function profileModal() {
   const prof = p?.profile || {};
   const base = `<div class="fx-grid">
     <div><label class="label">Nama produk</label><input id="fxp-name" value="${esc(p?.name || '')}" ${p ? 'disabled' : ''}></div>
-    <div><label class="label">Kategori</label><input id="fxp-cat" value="${esc(prof.category || '')}" ${p ? 'disabled' : ''} placeholder="mis. madu, skincare"></div></div>
+    <div><label class="label">Kategori</label><input id="fxp-cat" value="${esc(prof.story?.category || '')}" ${p ? 'disabled' : ''} placeholder="mis. madu, skincare"></div></div>
     <label class="label">Klaim resmi di label</label><textarea id="fxp-claim" rows="2" ${p ? 'disabled' : ''}>${esc(prof.official_claim || '')}</textarea>
     <label class="label">Catatan (opsional)</label><textarea id="fxp-notes" rows="2" ${p ? 'disabled' : ''}>${esc(prof.notes || '')}</textarea>
     <div class="fx-grid">
@@ -296,5 +296,5 @@ document.addEventListener('click', async (e) => {
       toast('Profil disetujui');
       loadAll().then(redrawLive).catch(() => {});
     }
-  } catch (ex) { toast(ex.message); if (btn.isConnected) { btn.disabled = false; } }
+  } catch (ex) { toast(ex.message); if (btn.isConnected) { btn.disabled = false; if (id === 'fxp-ai') btn.textContent = 'Susun pakai AI'; } }
 });
