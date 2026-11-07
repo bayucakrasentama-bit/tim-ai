@@ -127,3 +127,52 @@ test('claim/peek: job antre dengan produk draft tidak diambil', async () => {
   assert.deepEqual((await agent('POST', '/claim', {})).body, { job: null });
   assert.deepEqual((await agent('GET', '/peek')).body, { waiting: false });
 });
+
+// ---- Final review fix ----
+test('claim: product membawa updated_at + profile_version yang berubah saat profil diedit', async () => {
+  await reset();
+  const p = await approvedProduct();
+  const j = await mkJob(p);
+  const c1 = (await agent('POST', '/claim', {})).body.job;
+  assert.equal(c1.id, j.id);
+  assert.match(c1.product.profile_version, /^[0-9a-f]{16}$/);
+  assert.ok(c1.product.updated_at);
+  assert.equal((await agent('POST', '/claim', {})).body.job.product.profile_version, c1.product.profile_version);
+  const prof = { ...fixture(), facts: ['fakta baru'] };
+  await t.call('PUT', `/api/factory/products/${p.id}`, { profile: prof });
+  await t.call('POST', `/api/factory/products/${p.id}/approve`);
+  const c2 = (await agent('POST', '/claim', {})).body.job;
+  assert.equal(c2.id, j.id);
+  assert.notEqual(c2.product.profile_version, c1.product.profile_version);
+});
+
+test('profil balik draft saat produksi: progress & heartbeat -> pause, approve ulang -> antre lalu klaim lagi', async () => {
+  await reset();
+  const p = await approvedProduct();
+  const j = await mkJob(p);
+  assert.equal((await agent('POST', '/claim', {})).body.job.id, j.id);
+  await agent('POST', `/jobs/${j.id}/progress`, { status: 'produksi', done: 2 });
+  await t.call('PUT', `/api/factory/products/${p.id}`, { profile: fixture() });
+  assert.equal((await row(j.id)).status, 'menunggu_profil');
+  assert.equal((await agent('POST', `/jobs/${j.id}/progress`, { status: 'produksi', done: 3 })).body.action, 'pause');
+  assert.equal((await row(j.id)).status, 'menunggu_profil');
+  assert.equal((await row(j.id)).done, 2);
+  const hb = await agent('POST', '/heartbeat', { state: 'producing', job_id: j.id });
+  assert.deepEqual(hb.body.commands, [{ job_id: j.id, action: 'pause' }]);
+  assert.deepEqual((await agent('POST', '/claim', {})).body, { job: null });
+  await t.call('POST', `/api/factory/products/${p.id}/approve`);
+  assert.equal((await row(j.id)).status, 'antre');
+  assert.equal((await agent('POST', '/claim', {})).body.job.id, j.id);
+});
+
+test('done dengan drive_url kosong tidak menghapus drive_url lama', async () => {
+  await reset();
+  const p = await approvedProduct();
+  const j = await mkJob(p);
+  await agent('POST', '/claim', {});
+  await agent('POST', `/jobs/${j.id}/progress`, { drive_url: 'https://drive.google.com/drive/folders/hasil' });
+  await agent('POST', `/jobs/${j.id}/done`, { done: 5, drive_url: '' });
+  const r = await row(j.id);
+  assert.equal(r.status, 'selesai');
+  assert.equal(r.drive_url, 'https://drive.google.com/drive/folders/hasil');
+});

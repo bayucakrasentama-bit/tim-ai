@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { getSetting, now } from '../db.js';
 import { askClaude } from '../ai.js';
 import { canManage } from '../auth.js';
-import { slugify, parseFolderId, validateProfile, PROFILE_FIELDS } from './profile.js';
+import { slugify, parseFolderId, validateProfile, PROFILE_FIELDS, PALETTE_KEYS, normalizePalette, defaultRules } from './profile.js';
 
 let ask = askClaude;
 // Tes mengganti pemanggil AI; null mengembalikan yang asli.
@@ -36,33 +36,45 @@ function nameVariants(short) {
   return [...out].filter(Boolean);
 }
 
-const DRAFT_SCHEMA = {
-  type: 'object',
-  properties: {
-    short: { type: 'string' }, tts_name: { type: 'string' }, file_prefix: { type: 'string' },
-    brand_lock: { type: 'object' }, tts_lexicon: { type: 'object' },
-    other_brands: { type: 'array', items: { type: 'string' } }, label_regex: { type: 'string' },
-    facts: { type: 'array', items: { type: 'string' } }, audience: { type: 'string' },
-    angles: { type: 'array', items: { type: 'string' } }, hook_styles: { type: 'array', items: { type: 'string' } },
-    cta_variants: { type: 'array', items: { type: 'string' } }, badge_texts: { type: 'array', items: { type: 'string' } },
-    compliance: { type: 'object', properties: { banned_phrases: { type: 'array', items: { type: 'string' } }, replacements: { type: 'object' } } },
-    safe_hashtags: { type: 'array', items: { type: 'string' } },
-    story: {
-      type: 'object',
-      properties: {
-        category: { type: 'string' },
-        daily_pain_points: { type: 'array', items: { type: 'string' } }, physical_features: { type: 'array', items: { type: 'string' } },
-        safe_benefits: { type: 'array', items: { type: 'string' } }, usage_moments: { type: 'array', items: { type: 'string' } },
-      },
-    },
-  },
-  required: ['short', 'tts_name', 'file_prefix', 'brand_lock', 'tts_lexicon', 'label_regex', 'facts', 'audience', 'angles', 'hook_styles', 'cta_variants', 'badge_texts', 'compliance', 'safe_hashtags', 'story'],
-};
+// Skema structured output: semua object additionalProperties:false dan semua properti required (lihat src/ai.js).
+// Peta (brand_lock, tts_lexicon, compliance.replacements) dikirim AI sebagai daftar pasangan lalu diubah jadi objek di server.
+const sStr = { type: 'string' };
+const sArr = (items) => ({ type: 'array', items });
+const sObj = (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
+export const DRAFT_SCHEMA = sObj({
+  short: sStr, tts_name: sStr, file_prefix: sStr,
+  brand_lock: sArr(sObj({ key: sStr, variants: sArr(sStr) })),
+  tts_lexicon: sArr(sObj({ key: sStr, value: sStr })),
+  other_brands: sArr(sStr), label_regex: sStr,
+  facts: sArr(sStr), audience: sStr,
+  angles: sArr(sStr), hook_styles: sArr(sStr), cta_variants: sArr(sStr), badge_texts: sArr(sStr),
+  compliance: sObj({ banned_phrases: sArr(sStr), rules: sArr(sStr), replacements: sArr(sObj({ from: sStr, to: sStr })) }),
+  palette: sObj(Object.fromEntries(PALETTE_KEYS.map((k) => [k, sStr]))),
+  safe_hashtags: sArr(sStr),
+  story: sObj({
+    category: sStr, daily_pain_points: sArr(sStr), physical_features: sArr(sStr), safe_benefits: sArr(sStr), usage_moments: sArr(sStr),
+  }),
+});
+
+// Daftar pasangan [{key, value}] → objek; objek yang sudah berbentuk peta dibiarkan.
+function pairsToMap(v, k, val) {
+  if (Array.isArray(v)) {
+    const out = {};
+    for (const it of v) {
+      const key = typeof it?.[k] === 'string' ? it[k].trim() : '';
+      if (key && it[val] !== undefined && it[val] !== null) out[key] = it[val];
+    }
+    return out;
+  }
+  return v && typeof v === 'object' ? { ...v } : {};
+}
 
 const DRAFT_SYSTEM = `Kamu penyusun profil produk untuk pabrik video TikTok affiliate (keranjang kuning TikTok Shop) berbahasa Indonesia santai.
 Aturan keras: jangan mengarang klaim kesehatan. Semua fakta dan manfaat harus selaras dengan klaim resmi di label, dan jangan pernah menyebut produk sebagai obat. Tulis fitur fisik hanya yang wajar terlihat di kemasan.
-Isi "compliance.banned_phrases" dengan kata/klaim terlarang yang relevan untuk produk ini (nama penyakit, klaim medis, janji berlebihan, promo palsu) dan "compliance.replacements" dengan frasa aman penggantinya.
-"brand_lock" berisi nama produk beserta salah eja/variannya. "tts_lexicon" berisi cara baca nama produk untuk suara (pisah suku kata dengan strip).
+Isi "compliance.banned_phrases" dengan kata/klaim terlarang yang relevan untuk produk ini (nama penyakit, klaim medis, janji berlebihan, promo palsu), "compliance.rules" dengan aturan kepatuhan singkat (manfaat hanya sesuai klaim resmi, tanpa nama penyakit, tanpa klaim medis, tanpa promo/urgensi palsu), dan "compliance.replacements" dengan pasangan {from: frasa berisiko, to: frasa aman}.
+"brand_lock" berisi {key: nama produk resmi, variants: salah eja/variannya}. "tts_lexicon" berisi {key: kata, value: cara baca untuk suara (pisah suku kata dengan strip)}; boleh kosong kalau namanya sudah mudah dibaca.
+"other_brands" berisi merek lain yang tidak boleh disebut (boleh kosong). "palette" berisi warna hex (#RRGGBB) yang cocok dengan kemasan.
+"label_regex" adalah regex pendek (huruf kecil) yang cocok dengan teks nama produk di label, jangan terlalu umum.
 "daily_pain_points" minimal 3 item. "cta_variants" memuat ajakan lembut ke keranjang kuning. Balas hanya JSON sesuai skema.`;
 
 export async function agentState(db) {
@@ -85,8 +97,9 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const id = Number(req.params.id);
     return Number.isInteger(id) ? db.get('SELECT * FROM factory_products WHERE id = ? AND brand_id = ?', id, req.brand.id) : null;
   };
-  // Profil nggak lagi disetujui: request yang sudah antre balik menunggu supaya agen nggak produksi dari profil belum disetujui.
-  const unqueueJobs = (productId) => db.run("UPDATE factory_jobs SET status = 'menunggu_profil', updated_at = ? WHERE product_id = ? AND status = 'antre'", now(), productId);
+  // Profil nggak lagi disetujui: request antre/aktif balik menunggu supaya agen nggak produksi dari profil belum disetujui
+  // (agen yang sedang mengerjakannya menerima 'pause' lewat progress/heartbeat). Disetujui ulang → antre lagi.
+  const unqueueJobs = (productId) => db.run("UPDATE factory_jobs SET status = 'menunggu_profil', updated_at = ? WHERE product_id = ? AND status IN ('antre', 'menyiapkan', 'produksi')", now(), productId);
   const reload = async (id) => publicProduct(await db.get('SELECT * FROM factory_products WHERE id = ?', id));
 
   app.get('/api/factory/products', scope, async (req, res) => {
@@ -113,7 +126,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     if (await db.get('SELECT id FROM factory_products WHERE slug = ?', slug)) return err(res, 409, `Produk dengan kode "${slug}" sudah ada`);
     const profile = { name, official_claim: claim, story: { category } };
     if (b.notes) profile.notes = String(b.notes).slice(0, 2000);
-    if (b.palette && typeof b.palette === 'object' && !Array.isArray(b.palette)) profile.palette = b.palette;
+    if (b.palette && typeof b.palette === 'object' && !Array.isArray(b.palette)) profile.palette = normalizePalette(b.palette);
     const t = now();
     let row;
     try {
@@ -148,12 +161,16 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     out = out && typeof out === 'object' ? out : {};
     const profile = { ...cur };
     for (const f of PROFILE_FIELDS) if (out[f] !== undefined && out[f] !== null) profile[f] = out[f];
-    if (cur.palette && Object.keys(cur.palette).length) profile.palette = cur.palette;
+    // Palet: punya user dipertahankan, kalau belum ada pakai saran AI, sisanya default (6 key tetap).
+    const hasPalette = cur.palette && typeof cur.palette === 'object' && Object.keys(cur.palette).length;
+    profile.palette = normalizePalette(hasPalette ? cur.palette : out.palette);
     profile.story = { ...(out.story || {}), category: cur.story?.category || out.story?.category };
     // Klaim resmi dan nama milik user, AI tidak boleh mengubah.
     profile.official_claim = claim;
     profile.name = row.name;
-    const bl = profile.brand_lock && typeof profile.brand_lock === 'object' && !Array.isArray(profile.brand_lock) ? { ...profile.brand_lock } : {};
+    profile.tts_lexicon = pairsToMap(profile.tts_lexicon, 'key', 'value');
+    profile.other_brands = Array.isArray(profile.other_brands) ? profile.other_brands : [];
+    const bl = pairsToMap(profile.brand_lock, 'key', 'variants');
     const short = String(profile.short || row.name.replace(/^\s*madu\s+/i, '')).trim();
     profile.short = short;
     const key = Object.keys(bl)[0] || short;
@@ -161,6 +178,9 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     profile.brand_lock = bl;
     const comp = profile.compliance && typeof profile.compliance === 'object' ? { ...profile.compliance } : {};
     comp.banned_phrases = [...new Set([...(Array.isArray(comp.banned_phrases) ? comp.banned_phrases : []), ...GLOBAL_BANNED])];
+    const rules = Array.isArray(comp.rules) ? comp.rules.filter((r) => typeof r === 'string' && r.trim()) : [];
+    comp.rules = rules.length ? rules : defaultRules(claim);
+    comp.replacements = pairsToMap(comp.replacements, 'from', 'to');
     profile.compliance = comp;
     await db.run(
       "UPDATE factory_products SET profile = ?, status = 'draft', approved_by = NULL, approved_at = NULL, updated_at = ? WHERE id = ?",
@@ -179,12 +199,29 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const pi = pick('product_image');
     const li = pick('label_image');
     if (pi === false || li === false) return err(res, 400, IMAGE_ERR);
+    // Klaim resmi, kategori, dan catatan boleh dikoreksi; disimpan di field profil yang dipakai backend/agen.
+    const profile = { ...b.profile };
+    const claim = b.official_claim ?? profile.official_claim;
+    if (claim !== undefined) {
+      if (typeof claim !== 'string' || !claim.trim()) return err(res, 400, 'Klaim resmi di label wajib diisi');
+      profile.official_claim = claim.trim();
+    }
+    const category = b.category ?? profile.story?.category;
+    if (category !== undefined) {
+      if (typeof category !== 'string' || !category.trim()) return err(res, 400, 'Kategori wajib diisi');
+      profile.story = { ...(profile.story && typeof profile.story === 'object' ? profile.story : {}), category: category.trim() };
+    }
+    if (b.notes !== undefined) profile.notes = String(b.notes ?? '').slice(0, 2000);
+    // Field yang UI belum bisa isi: palet default (6 key), lexicon & merek lain boleh kosong.
+    profile.palette = normalizePalette(profile.palette);
+    if (profile.tts_lexicon === undefined) profile.tts_lexicon = {};
+    if (profile.other_brands === undefined) profile.other_brands = [];
     // Edit setelah disetujui: balik ke draft, harus disetujui ulang.
     await db.run(
       "UPDATE factory_products SET profile = ?, product_image = ?, label_image = ?, status = 'draft', approved_by = NULL, approved_at = NULL, updated_at = ? WHERE id = ?",
-      JSON.stringify(b.profile), pi, li, now(), row.id,
+      JSON.stringify(profile), pi, li, now(), row.id,
     );
-    if (row.status === 'approved') await unqueueJobs(row.id);
+    await unqueueJobs(row.id);
     res.json({ product: await reload(row.id) });
   });
 
@@ -280,7 +317,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
   transition('pause', ['antre', 'menyiapkan', 'produksi'], 'dijeda');
   transition('resume', ['dijeda'], 'antre');
   transition('cancel', null, 'dibatalkan');
-  transition('retry', ['gagal'], 'antre', ', message = NULL');
+  transition('retry', ['gagal'], 'antre', ', message = NULL, finished_at = NULL, eta_at = NULL');
 
   app.post('/api/factory/jobs/:id/priority', scope, async (req, res) => {
     if (!canManage(req.user)) return err(res, 403, 'Cuma pemilik/admin yang bisa mengubah prioritas');

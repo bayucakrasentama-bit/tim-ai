@@ -199,9 +199,9 @@ function profileModal() {
   const prof = p?.profile || {};
   const base = `<div class="fx-grid">
     <div><label class="label">Nama produk</label><input id="fxp-name" value="${esc(p?.name || '')}" ${p ? 'disabled' : ''}></div>
-    <div><label class="label">Kategori</label><input id="fxp-cat" value="${esc(prof.story?.category || '')}" ${p ? 'disabled' : ''} placeholder="mis. madu, skincare"></div></div>
-    <label class="label">Klaim resmi di label</label><textarea id="fxp-claim" rows="2" ${p ? 'disabled' : ''}>${esc(prof.official_claim || '')}</textarea>
-    <label class="label">Catatan (opsional)</label><textarea id="fxp-notes" rows="2" ${p ? 'disabled' : ''}>${esc(prof.notes || '')}</textarea>
+    <div><label class="label">Kategori</label><input id="fxp-cat" value="${esc(prof.story?.category || '')}" placeholder="mis. madu, skincare"></div></div>
+    <label class="label">Klaim resmi di label</label><textarea id="fxp-claim" rows="2">${esc(prof.official_claim || '')}</textarea>
+    <label class="label">Catatan (opsional)</label><textarea id="fxp-notes" rows="2">${esc(prof.notes || '')}</textarea>
     <div class="fx-grid">
       ${['product_image:Foto produk', 'label_image:Foto label'].map((s) => { const [k, l] = s.split(':'); return `<div><label class="label">${l}</label>
         <input type="file" accept="image/png,image/jpeg,image/webp" data-fx-up="${k}">
@@ -218,6 +218,10 @@ function profileModal() {
     </div>`;
 }
 
+// Profil sudah punya isi cerita (pain point, fitur, manfaat, momen)?
+const hasStory = (p) => ['daily_pain_points', 'physical_features', 'safe_benefits', 'usage_moments']
+  .some((k) => (p?.profile?.story?.[k] || []).length > 0);
+
 function openProfile(p) {
   editing = p;
   imgs = { product_image: p?.product_image || '', label_image: p?.label_image || '' };
@@ -226,6 +230,12 @@ function openProfile(p) {
 
 function collectProfile() {
   const prof = JSON.parse(JSON.stringify(editing.profile || {}));
+  // Klaim resmi, kategori, dan catatan bisa dikoreksi; simpan = profil balik draft (harus disetujui ulang).
+  const claim = $('#fxp-claim')?.value.trim();
+  const cat = $('#fxp-cat')?.value.trim();
+  if (claim) prof.official_claim = claim;
+  if (cat) setPath(prof, 'story.category', cat);
+  if ($('#fxp-notes')) prof.notes = $('#fxp-notes').value.trim();
   document.querySelectorAll('#modal-box [data-fx-list]').forEach((t) => {
     setPath(prof, t.dataset.fxList, t.value.split('\n').map((s) => s.trim()).filter(Boolean));
   });
@@ -265,6 +275,8 @@ document.addEventListener('click', async (e) => {
   const id = e.target.id;
   if (!['fxp-create', 'fxp-ai', 'fxp-save', 'fxp-approve'].includes(id)) return;
   const btn = e.target;
+  if ((id === 'fxp-save' || id === 'fxp-approve') && (!$('#fxp-claim').value.trim() || !$('#fxp-cat').value.trim())) { toast('Kategori dan klaim label wajib diisi'); return; }
+  if (id === 'fxp-ai' && hasStory(editing) && !confirm('Profil ini sudah berisi cerita/isi. Susun ulang pakai AI akan menimpa isinya. Lanjut?')) return;
   btn.disabled = true;
   try {
     if (id === 'fxp-create') {
@@ -279,6 +291,8 @@ document.addEventListener('click', async (e) => {
       toast('Produk dibuat. Susun profil pakai AI atau isi manual.');
     } else if (id === 'fxp-ai') {
       btn.textContent = 'Menyusun…';
+      // Simpan dulu koreksi klaim/kategori/catatan supaya AI memakai versi terbaru.
+      upsert((await api(`/api/factory/products/${editing.id}`, json('PUT', { profile: collectProfile() }))).product);
       const { product } = await api(`/api/factory/products/${editing.id}/draft`, { method: 'POST' });
       refreshAfterProduct(product);
       openModal(`<div class="fx-modal">${profileModal()}</div>`);

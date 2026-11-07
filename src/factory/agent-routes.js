@@ -1,5 +1,6 @@
 // Motion Factory (sisi agen Mac mini): klaim job, laporan progres, heartbeat. Dikunci token Bearer.
-import { getSetting, setSetting, now } from '../db.js';
+import crypto from 'node:crypto';
+import { setSetting, now } from '../db.js';
 import { safeEqual } from '../auth.js';
 import { notify } from '../notify.js';
 
@@ -23,9 +24,14 @@ export function factoryAgentRoutes(app, db, { token } = {}) {
 
   async function agentJob(j) {
     const p = await db.get('SELECT * FROM factory_products WHERE id = ?', j.product_id);
+    // profile_version berubah tiap isi profil/gambar berubah → agen menyiapkan ulang produk (install + stem baru).
+    const profile_version = crypto.createHash('sha256').update(JSON.stringify([p.profile, p.product_image, p.label_image])).digest('hex').slice(0, 16);
     return {
       id: j.id, brand_id: j.brand_id, target: j.target, cta: j.cta, footage_url: j.footage_url, done: j.done, drive_url: j.drive_url,
-      product: { id: p.id, slug: p.slug, name: p.name, profile: parse(p.profile), product_image: p.product_image, label_image: p.label_image },
+      product: {
+        id: p.id, slug: p.slug, name: p.name, profile: parse(p.profile), product_image: p.product_image, label_image: p.label_image,
+        updated_at: p.updated_at, profile_version,
+      },
     };
   }
 
@@ -36,7 +42,8 @@ export function factoryAgentRoutes(app, db, { token } = {}) {
     const id = Number(b.job_id);
     if (b.job_id !== null && b.job_id !== undefined && Number.isInteger(id)) {
       const j = await db.get('SELECT id, status FROM factory_jobs WHERE id = ?', id);
-      if (j?.status === 'dijeda') commands.push({ job_id: j.id, action: 'pause' });
+      // menunggu_profil: profil balik draft saat job jalan → agen berhenti dulu sampai disetujui ulang.
+      if (j?.status === 'dijeda' || j?.status === 'menunggu_profil') commands.push({ job_id: j.id, action: 'pause' });
       if (j?.status === 'dibatalkan') commands.push({ job_id: j.id, action: 'cancel' });
     }
     res.json({ ok: true, commands });
@@ -81,7 +88,7 @@ export function factoryAgentRoutes(app, db, { token } = {}) {
     if (ACTIVE.includes(j.status)) await apply(ACTIVE, status ? ['status = ?'] : [], status ? [status] : []);
     else if (j.status === 'dijeda') await apply(['dijeda'], [], []);
     const cur = await db.get('SELECT status FROM factory_jobs WHERE id = ?', j.id);
-    const action = cur.status === 'dijeda' ? 'pause' : cur.status === 'dibatalkan' ? 'cancel' : 'continue';
+    const action = ['dijeda', 'menunggu_profil'].includes(cur.status) ? 'pause' : cur.status === 'dibatalkan' ? 'cancel' : 'continue';
     res.json({ ok: true, action });
   });
 
@@ -102,8 +109,8 @@ export function factoryAgentRoutes(app, db, { token } = {}) {
     const done = Number.isInteger(b.done) && b.done >= 0 ? b.done : 0;
     const url = String(b.drive_url ?? '');
     const allowed = [...ACTIVE, 'dijeda'];
-    const rows = await db.run(`UPDATE factory_jobs SET status = 'selesai', done = CASE WHEN ? > done THEN ? ELSE done END, drive_url = ?, finished_at = ?, updated_at = ? WHERE id = ? AND status IN (${inList(allowed)}) RETURNING done`, done, done, url, now(), now(), j.id, ...allowed);
-    if (rows.length) await notifyFn(db, j.brand_id, 'factory_done', `✅ Motion Factory: ${j.product_name} ${rows[0].done} video selesai\n${url}`).catch(() => {});
+    const rows = await db.run(`UPDATE factory_jobs SET status = 'selesai', done = CASE WHEN ? > done THEN ? ELSE done END, drive_url = COALESCE(NULLIF(?, ''), drive_url), finished_at = ?, updated_at = ? WHERE id = ? AND status IN (${inList(allowed)}) RETURNING done, drive_url`, done, done, url, now(), now(), j.id, ...allowed);
+    if (rows.length) await notifyFn(db, j.brand_id, 'factory_done', `✅ Motion Factory: ${j.product_name} ${rows[0].done} video selesai\n${rows[0].drive_url || ''}`).catch(() => {});
     res.json({ ok: true });
   });
 }

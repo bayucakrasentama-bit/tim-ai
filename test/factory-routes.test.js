@@ -240,3 +240,120 @@ test('resume dan retry job dari produk draft -> menunggu_profil', async () => {
   await t.db.run("UPDATE factory_jobs SET status = 'gagal' WHERE id = ?", j.id);
   assert.equal((await t.call('POST', `/api/factory/jobs/${j.id}/retry`)).body.job.status, 'antre');
 });
+
+// ---- Final review fix ----
+import { DRAFT_SCHEMA } from '../src/factory/routes.js';
+
+test('DRAFT_SCHEMA: tiap object additionalProperties:false dan semua properti required', () => {
+  const walk = (node, path) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'object') {
+      assert.equal(node.additionalProperties, false, `${path} additionalProperties`);
+      assert.ok(node.properties && Object.keys(node.properties).length, `${path} properties`);
+      assert.deepEqual([...node.required].sort(), Object.keys(node.properties).sort(), `${path} required`);
+      for (const [k, v] of Object.entries(node.properties)) walk(v, `${path}.${k}`);
+    }
+    if (node.type === 'array') walk(node.items, `${path}[]`);
+    for (const k of ['anyOf', 'oneOf', 'allOf']) (node[k] || []).forEach((n, i) => walk(n, `${path}.${k}${i}`));
+  };
+  walk(DRAFT_SCHEMA, '$');
+  assert.ok(DRAFT_SCHEMA.required.includes('other_brands'));
+  assert.ok(DRAFT_SCHEMA.required.includes('palette'));
+  assert.deepEqual(DRAFT_SCHEMA.properties.palette.required, ['primary', 'highlight', 'cta', 'cream', 'ink', 'white']);
+  assert.ok(DRAFT_SCHEMA.properties.compliance.required.includes('rules'));
+});
+
+// Jawaban AI persis berbentuk DRAFT_SCHEMA (peta sebagai daftar pasangan).
+const schemaShaped = (over = {}) => ({
+  short: 'Olyfresh', tts_name: 'Madu Olyfresh', file_prefix: 'OF',
+  brand_lock: [{ key: 'Olyfresh', variants: ['oly fresh', 'olifresh'] }],
+  tts_lexicon: [], other_brands: [], label_regex: 'oly ?fresh',
+  facts: ['Madu murni'], audience: 'Ibu muda', angles: ['pagi sibuk'], hook_styles: ['pertanyaan'],
+  cta_variants: ['Cek keranjang kuning'], badge_texts: ['Cek Keranjang Kuning'],
+  compliance: { banned_phrases: ['ajaib'], rules: [], replacements: [{ from: 'dijamin', to: 'menurutku' }] },
+  palette: { primary: '#112233', highlight: 'kuning', cta: '#445566', cream: '#FFFFFF', ink: '#000000', white: '#FFFFFF' },
+  safe_hashtags: ['#madu'],
+  story: { category: 'lain', daily_pain_points: ['a', 'b', 'c'], physical_features: ['botol'], safe_benefits: ['segar'], usage_moments: ['pagi'] },
+  ...over,
+});
+
+test('draft AI bentuk schema (pasangan) -> peta, rules & palette default, lalu approve sukses', async () => {
+  const { body: { product } } = await mk('Madu Olyfresh');
+  setAskForTests(async () => schemaShaped());
+  let r;
+  try { r = await t.call('POST', `/api/factory/products/${product.id}/draft`); } finally { setAskForTests(null); }
+  assert.equal(r.status, 200);
+  const prof = r.body.product.profile;
+  assert.deepEqual(prof.tts_lexicon, {});
+  assert.deepEqual(prof.other_brands, []);
+  assert.ok(prof.brand_lock.Olyfresh.includes('olifresh'));
+  assert.deepEqual(prof.compliance.replacements, { dijamin: 'menurutku' });
+  assert.ok(prof.compliance.rules.length >= 4);
+  assert.ok(prof.compliance.rules[0].includes('membantu memelihara daya tahan tubuh'));
+  assert.equal(prof.palette.primary, '#112233');
+  assert.equal(prof.palette.highlight, '#FFC93C'); // nilai bukan hex → default
+  assert.equal(prof.story.category, 'x');
+  await t.call('PUT', `/api/factory/products/${product.id}`, { profile: prof, product_image: '/uploads/a.png', label_image: '/uploads/b.png' });
+  const ok = await t.call('POST', `/api/factory/products/${product.id}/approve`);
+  assert.equal(ok.status, 200, ok.body.error);
+  assert.equal(ok.body.product.status, 'approved');
+});
+
+test('draft AI tanpa palette -> palette default 6 key; palette user dipertahankan', async () => {
+  const { body: { product } } = await mk('Madu Palet');
+  setAskForTests(async () => schemaShaped({ palette: undefined }));
+  try {
+    const r = await t.call('POST', `/api/factory/products/${product.id}/draft`);
+    assert.deepEqual(r.body.product.profile.palette, { primary: '#F28C28', highlight: '#FFC93C', cta: '#E8452C', cream: '#FFF3E3', ink: '#161210', white: '#FFFFFF' });
+  } finally { setAskForTests(null); }
+  const c = await t.call('POST', '/api/factory/products', { name: 'Madu Palet User', category: 'x', official_claim: 'y', palette: { primary: '#010203' } });
+  setAskForTests(async () => schemaShaped());
+  try {
+    const r = await t.call('POST', `/api/factory/products/${c.body.product.id}/draft`);
+    assert.equal(r.body.product.profile.palette.primary, '#010203');
+    assert.equal(r.body.product.profile.palette.cta, '#E8452C');
+  } finally { setAskForTests(null); }
+});
+
+test('PUT: klaim resmi, kategori, catatan bisa dikoreksi dan profil balik draft', async () => {
+  const p = await approvedProduct('Madu Koreksi');
+  const prof = (await t.call('GET', '/api/factory/products')).body.products.find((x) => x.id === p.id).profile;
+  const r = await t.call('PUT', `/api/factory/products/${p.id}`, { profile: { ...prof, official_claim: 'klaim baru', story: { ...prof.story, category: 'kategori baru' }, notes: 'catatan' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.product.status, 'draft');
+  assert.equal(r.body.product.profile.official_claim, 'klaim baru');
+  assert.equal(r.body.product.profile.story.category, 'kategori baru');
+  assert.equal(r.body.product.profile.notes, 'catatan');
+  const r2 = await t.call('PUT', `/api/factory/products/${p.id}`, { profile: r.body.product.profile, official_claim: 'klaim lain', category: 'kat lain' });
+  assert.equal(r2.body.product.profile.official_claim, 'klaim lain');
+  assert.equal(r2.body.product.profile.story.category, 'kat lain');
+  assert.equal((await t.call('PUT', `/api/factory/products/${p.id}`, { profile: prof, official_claim: '  ' })).status, 400);
+});
+
+test('profil balik draft: job antre/menyiapkan/produksi -> menunggu_profil, approve ulang -> antre', async () => {
+  const p = await approvedProduct('Madu AktifDraft');
+  const a = (await job(p.id)).body.job; const b = (await job(p.id)).body.job; const c = (await job(p.id)).body.job; const d = (await job(p.id)).body.job;
+  await t.db.run("UPDATE factory_jobs SET status = 'menyiapkan' WHERE id = ?", b.id);
+  await t.db.run("UPDATE factory_jobs SET status = 'produksi' WHERE id = ?", c.id);
+  await t.db.run("UPDATE factory_jobs SET status = 'dijeda' WHERE id = ?", d.id);
+  await t.call('PUT', `/api/factory/products/${p.id}`, { profile: fixture() });
+  const st = async (id) => (await t.db.get('SELECT status FROM factory_jobs WHERE id = ?', id)).status;
+  for (const j of [a, b, c]) assert.equal(await st(j.id), 'menunggu_profil');
+  assert.equal(await st(d.id), 'dijeda');
+  await t.call('POST', `/api/factory/products/${p.id}/approve`);
+  for (const j of [a, b, c]) assert.equal(await st(j.id), 'antre');
+  // lewat draft AI juga
+  await t.db.run("UPDATE factory_jobs SET status = 'produksi' WHERE id = ?", c.id);
+  setAskForTests(async () => fixture());
+  try { await t.call('POST', `/api/factory/products/${p.id}/draft`); } finally { setAskForTests(null); }
+  assert.equal(await st(c.id), 'menunggu_profil');
+});
+
+test('retry mengosongkan finished_at dan eta_at', async () => {
+  const p = await approvedProduct('Madu RetryBersih');
+  const j = (await job(p.id)).body.job;
+  await t.db.run("UPDATE factory_jobs SET status = 'gagal', finished_at = '2026-01-01T00:00:00Z', eta_at = '2026-01-02T00:00:00Z' WHERE id = ?", j.id);
+  const r = await t.call('POST', `/api/factory/jobs/${j.id}/retry`);
+  assert.equal(r.body.job.finished_at, null);
+  assert.equal(r.body.job.eta_at, null);
+});
