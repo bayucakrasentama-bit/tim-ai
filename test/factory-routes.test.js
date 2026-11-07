@@ -137,3 +137,79 @@ test('agent: offline tanpa heartbeat, online kalau < 120 dtk', async () => {
   await setSetting(t.db, 'factory:agent', JSON.stringify({ state: 'idle', seen_at: new Date(Date.now() - 130e3).toISOString() }));
   assert.equal((await agentState(t.db)).online, false);
 });
+
+// ---- Fix round 1 ----
+test('upload: hanya PNG/JPG/WebP', async () => {
+  const send = async (name, type) => {
+    const fd = new FormData();
+    fd.append('file', new Blob(['x'], { type }), name);
+    const r = await fetch(`${t.base}/api/factory/upload`, { method: 'POST', body: fd });
+    return { status: r.status, body: await r.json() };
+  };
+  const svg = await send('a.svg', 'image/svg+xml');
+  assert.equal(svg.status, 400);
+  assert.equal(svg.body.error, 'Format gambar harus PNG, JPG, atau WebP');
+  assert.equal((await send('a.gif', 'image/gif')).status, 400);
+  const ok = await send('a.png', 'image/png');
+  assert.equal(ok.status, 200);
+  assert.match(ok.body.url, /^\/uploads\//);
+});
+
+test('gambar produk: URL luar ditolak', async () => {
+  const { body: { product } } = await mk('Madu Gambar');
+  const r = await t.call('PUT', `/api/factory/products/${product.id}`, { profile: {}, product_image: 'https://evil.example/x.png' });
+  assert.equal(r.status, 400);
+  const c = await t.call('POST', '/api/factory/products', { name: 'Madu Gambar Dua', category: 'x', official_claim: 'y', label_image: 'http://169.254.169.254/x' });
+  assert.equal(c.status, 400);
+  assert.equal((await t.call('PUT', `/api/factory/products/${product.id}`, { profile: {}, product_image: '/uploads/../../etc/passwd' })).status, 400);
+});
+
+test('edit produk approved -> job antre balik menunggu_profil', async () => {
+  const p = await approvedProduct('Madu Balik');
+  const j = (await job(p.id)).body.job;
+  assert.equal(j.status, 'antre');
+  await t.call('PUT', `/api/factory/products/${p.id}`, { profile: fixture() });
+  const list = (await t.call('GET', '/api/factory/jobs')).body.jobs;
+  assert.equal(list.find((x) => x.id === j.id).status, 'menunggu_profil');
+  await t.call('POST', `/api/factory/products/${p.id}/approve`);
+  assert.equal((await t.call('GET', '/api/factory/jobs')).body.jobs.find((x) => x.id === j.id).status, 'antre');
+});
+
+test('transisi atomik: status berubah di tengah -> 409', async () => {
+  const p = await approvedProduct('Madu Atomik');
+  const j = (await job(p.id)).body.job;
+  // Simulasikan balapan: status berubah setelah dibaca tapi sebelum UPDATE.
+  const realGet = t.db.get;
+  t.db.get = async (sql, ...a) => {
+    const r = await realGet.call(t.db, sql, ...a);
+    if (/FROM factory_jobs WHERE id = \? AND brand_id/.test(sql)) await t.db.run("UPDATE factory_jobs SET status = 'selesai' WHERE id = ?", j.id);
+    return r;
+  };
+  try {
+    const r = await t.call('POST', `/api/factory/jobs/${j.id}/cancel`);
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error, 'Status request sudah berubah, muat ulang');
+  } finally { t.db.get = realGet; }
+  assert.equal((await t.db.get('SELECT status FROM factory_jobs WHERE id = ?', j.id)).status, 'selesai');
+});
+
+test('isolasi brand: brand B tidak melihat produk/job brand A', async () => {
+  const p = await approvedProduct('Madu Isolasi');
+  const j = (await job(p.id)).body.job;
+  const [b] = await t.db.run('INSERT INTO brands (name, created_at) VALUES (?, ?) RETURNING *', 'Brand B', new Date().toISOString());
+  const callB = async (method, url, body) => {
+    const r = await fetch(t.base + url, { method, headers: { 'content-type': 'application/json', 'x-brand-id': String(b.id) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  };
+  const probe = await callB('GET', '/api/factory/products');
+  assert.equal(probe.status, 200);
+  assert.equal(probe.body.products.length, 0);
+  assert.equal((await callB('GET', '/api/factory/jobs')).body.jobs.length, 0);
+  assert.equal((await callB('POST', `/api/factory/products/${p.id}/approve`)).status, 404);
+  assert.equal((await callB('PUT', `/api/factory/products/${p.id}`, { profile: {} })).status, 404);
+  assert.equal((await callB('POST', `/api/factory/products/${p.id}/draft`)).status, 404);
+  for (const a of ['pause', 'cancel', 'retry', 'resume']) assert.equal((await callB('POST', `/api/factory/jobs/${j.id}/${a}`)).status, 404);
+  assert.equal((await callB('POST', `/api/factory/jobs/${j.id}/priority`, { priority: 3 })).status, 404);
+  assert.equal((await callB('POST', '/api/factory/jobs', { product_id: p.id, target: 5, cta: 'kerkun', footage_url: FOLDER })).status, 404);
+  assert.equal((await t.db.get('SELECT status FROM factory_jobs WHERE id = ?', j.id)).status, 'antre');
+});

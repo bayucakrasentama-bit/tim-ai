@@ -21,7 +21,8 @@ export const GLOBAL_BANNED = [
 
 const err = (res, status, error) => res.status(status).json({ error });
 const parse = (s) => { try { return JSON.parse(s); } catch { return {}; } };
-const isHttpOrPath = (v) => typeof v === 'string' && /^(https:\/\/|\/uploads\/)/.test(v);
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const IMAGE_ERR = 'Gambar harus dari hasil unggahan di sini (PNG, JPG, atau WebP)';
 
 const publicProduct = (r) => ({
   id: r.id, slug: r.slug, name: r.name, status: r.status, profile: parse(r.profile),
@@ -73,6 +74,13 @@ export async function agentState(db) {
 }
 
 export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
+  // undefined/null/'' -> kosong (null); URL hasil unggahan sendiri -> dipakai; selain itu false (ditolak).
+  const cleanImage = (v) => {
+    if (v === undefined || v === null || v === '') return null;
+    if (typeof v !== 'string') return false;
+    if (/^\/uploads\/[A-Za-z0-9._-]+$/.test(v) && !v.includes('..')) return v;
+    return storage?.kind === 'blob' && storage.isOwnUrl(v) ? v : false;
+  };
   const getProduct = async (req) => {
     const id = Number(req.params.id);
     return Number.isInteger(id) ? db.get('SELECT * FROM factory_products WHERE id = ? AND brand_id = ?', id, req.brand.id) : null;
@@ -92,6 +100,12 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     if (!name) return err(res, 400, 'Nama produk wajib diisi');
     if (!category) return err(res, 400, 'Kategori wajib diisi');
     if (!claim) return err(res, 400, 'Klaim resmi di label wajib diisi');
+    const imgs = {};
+    for (const k of ['product_image', 'label_image']) {
+      const v = cleanImage(b[k]);
+      if (v === false) return err(res, 400, IMAGE_ERR);
+      imgs[k] = v ?? null;
+    }
     const slug = slugify(name);
     if (!slug) return err(res, 400, 'Nama produk harus mengandung huruf atau angka');
     if (await db.get('SELECT id FROM factory_products WHERE slug = ?', slug)) return err(res, 409, `Produk dengan kode "${slug}" sudah ada`);
@@ -104,7 +118,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
       [row] = await db.run(
         'INSERT INTO factory_products (brand_id, slug, name, status, profile, product_image, label_image, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
         req.brand.id, slug, name, 'draft', JSON.stringify(profile),
-        isHttpOrPath(b.product_image) ? b.product_image : null, isHttpOrPath(b.label_image) ? b.label_image : null, req.user.username, t, t,
+        imgs.product_image, imgs.label_image, req.user.username, t, t,
       );
     } catch {
       return err(res, 409, `Produk dengan kode "${slug}" sudah ada`);
@@ -158,13 +172,19 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     if (!row) return err(res, 404, 'Produk nggak ketemu');
     const b = req.body || {};
     if (!b.profile || typeof b.profile !== 'object' || Array.isArray(b.profile)) return err(res, 400, 'Profil wajib dikirim');
-    const pi = b.product_image === undefined ? row.product_image : (isHttpOrPath(b.product_image) ? b.product_image : null);
-    const li = b.label_image === undefined ? row.label_image : (isHttpOrPath(b.label_image) ? b.label_image : null);
+    const pick = (k) => (b[k] === undefined ? row[k] : cleanImage(b[k]));
+    const pi = pick('product_image');
+    const li = pick('label_image');
+    if (pi === false || li === false) return err(res, 400, IMAGE_ERR);
     // Edit setelah disetujui: balik ke draft, harus disetujui ulang.
     await db.run(
       "UPDATE factory_products SET profile = ?, product_image = ?, label_image = ?, status = 'draft', approved_by = NULL, approved_at = NULL, updated_at = ? WHERE id = ?",
       JSON.stringify(b.profile), pi, li, now(), row.id,
     );
+    // Profil nggak lagi disetujui: request yang sudah antre balik menunggu supaya agen nggak produksi dari profil belum disetujui.
+    if (row.status === 'approved') {
+      await db.run("UPDATE factory_jobs SET status = 'menunggu_profil', updated_at = ? WHERE product_id = ? AND status = 'antre'", now(), row.id);
+    }
     res.json({ product: await reload(row.id) });
   });
 
@@ -186,9 +206,9 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
   const uploadMw = upload ? upload.single('file') : (_req, _res, next) => next();
   app.post('/api/factory/upload', scope, uploadMw, async (req, res) => {
     if (req.file) {
-      if (!/^image\//.test(req.file.mimetype)) {
+      if (!IMAGE_TYPES.includes(req.file.mimetype) || !/\.(png|jpe?g|webp)$/i.test(req.file.path)) {
         fs.rm(req.file.path, () => {});
-        return err(res, 400, 'File harus berupa gambar');
+        return err(res, 400, 'Format gambar harus PNG, JPG, atau WebP');
       }
       return res.json({ url: `/uploads/${path.basename(req.file.path)}` });
     }
@@ -203,7 +223,6 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     return Number.isInteger(id) ? db.get('SELECT * FROM factory_jobs WHERE id = ? AND brand_id = ?', id, req.brand.id) : null;
   };
   const reloadJob = (id) => db.get('SELECT * FROM factory_jobs WHERE id = ?', id);
-  const setStatus = (id, status, extra = '') => db.run(`UPDATE factory_jobs SET status = ?, updated_at = ?${extra} WHERE id = ?`, status, now(), id);
 
   // Antrean FIFO lintas brand: prioritas tertinggi dulu, lalu id terkecil.
   app.get('/api/factory/jobs', scope, async (req, res) => {
@@ -236,12 +255,20 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     res.json({ job: await reloadJob(row.id) });
   });
 
+  const STATUSES = ['menunggu_profil', 'antre', 'menyiapkan', 'produksi', 'selesai', 'dijeda', 'dibatalkan', 'gagal'];
   const transition = (action, from, to, extra = '') => app.post(`/api/factory/jobs/:id/${action}`, scope, async (req, res) => {
     const j = await getJob(req);
     if (!j) return err(res, 404, 'Request nggak ketemu');
-    if (from && !from.includes(j.status)) return err(res, 400, `Request berstatus "${j.status}" nggak bisa di-${action}`);
-    if (!from && j.status === 'selesai') return err(res, 400, 'Request yang sudah selesai nggak bisa dibatalkan');
-    await setStatus(j.id, to, extra);
+    const allowed = from || STATUSES.filter((x) => x !== 'selesai');
+    if (!allowed.includes(j.status)) {
+      return err(res, 400, j.status === 'selesai' && !from ? 'Request yang sudah selesai nggak bisa dibatalkan' : `Request berstatus "${j.status}" nggak bisa di-${action}`);
+    }
+    // Atomik: hanya berubah kalau status masih sama seperti yang dicek (agen/user lain bisa mengubahnya bersamaan).
+    const rows = await db.run(
+      `UPDATE factory_jobs SET status = ?, updated_at = ?${extra} WHERE id = ? AND brand_id = ? AND status IN (${allowed.map(() => '?').join(',')}) RETURNING id`,
+      to, now(), j.id, req.brand.id, ...allowed,
+    );
+    if (!rows.length) return err(res, 409, 'Status request sudah berubah, muat ulang');
     res.json({ job: await reloadJob(j.id) });
   });
   // Agen tahu lewat commands heartbeat / action progress, yang dibaca dari status di DB.
