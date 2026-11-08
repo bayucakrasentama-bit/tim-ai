@@ -42,3 +42,12 @@
   URL selalu mengikuti layar aktif, tombol back/forward browser berfungsi, judul tab ikut layar.
 - Berlaku juga untuk huruf kapital (`/Konten`). SPA fallback: `vercel.json` (prod) + `src/app.js` (lokal).
 - File kunci: `public/router.js` (tabel rute), `public/app.js` (show + popstate + boot).
+
+## Update 2026-11-08 (merge + restyle)
+- **Digabung**: "AI & API Keys" kini tab **"Model & API Keys"** di AI Studio (menu lama disembunyikan;
+  `/aikeys` & `data-goto="aikeys"` tetap jalan lewat alias). Satu pintu AI untuk semua.
+- **Dirapikan**: tab "Ringkasan & Master BCS" (adv/mp/kol/affiliate) → **"Ringkasan"**;
+  nama "Master BCS" kini hanya di menu global "Laporan & Master BCS" + link cepat dari tiap Ringkasan.
+- **Tema v4** (`theme-v4.css`, dimuat terakhir): palet ala Mengantar (royal blue #2e47ba,
+  navy ink #203551, canvas #f6f8fc, periwinkle #93a6ff, radius 12/8) + lapisan motion
+  (transisi .25s ease, rebound click, fade+slide view, stagger kartu/tabel, glow focus).
