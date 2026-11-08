@@ -1,4 +1,5 @@
 import { homeForTeam } from './workspace-policy.js';
+import { viewFromPath, pathForView } from './router.js';
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -122,12 +123,21 @@ const closeSidebar = () => document.body.classList.remove('sb-open');
 $('#sb-toggle').addEventListener('click', () => document.body.classList.toggle('sb-open'));
 $('#sb-backdrop').addEventListener('click', closeSidebar);
 
-function show(view) {
+const VALID_VIEWS = new Set([...document.querySelectorAll('#nav [data-view]')].map((b) => b.dataset.view));
+
+function show(view, opts = {}) {
   closeSidebar();
   const navBtn = document.querySelector(`#nav [data-view="${view}"]`);
+  const viewLabel = navBtn?.querySelector('.nav-label')?.textContent?.trim() || 'TIM-AI';
   $('#mb-title').textContent = navBtn?.querySelector('.nav-label')?.textContent || '';
+  document.title = viewLabel === 'TIM-AI' ? 'TIM-AI' : `${viewLabel} · TIM-AI`;
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
+  // Permalink: URL selalu menunjuk layar yang sedang dibuka, jadi bisa dibagikan.
+  const permalink = pathForView(view);
+  if (location.pathname !== permalink || location.search) {
+    history[opts.replace ? 'replaceState' : 'pushState']({ view }, '', permalink);
+  }
   try { localStorage.setItem(`siarin.view.${state.me?.user.id ?? 'guest'}`, view); } catch { /* mode privat */ }
   if (view === 'calendar') renderCalendar();
   if (view === 'history') renderHistory();
@@ -136,6 +146,11 @@ function show(view) {
   viewHooks[view]?.();
 }
 $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (b) show(b.dataset.view); });
+// Tombol back/forward browser ikut berpindah layar.
+window.addEventListener('popstate', () => {
+  const v = viewFromPath(location.pathname, VALID_VIEWS);
+  if (v) show(v, { replace: true });
+});
 
 // ---------- Buat Post ----------
 const mediaType = () => (state.file ? (state.file.type.startsWith('video/') ? 'video' : 'image') : state.asset ? state.asset.kind : 'text');
@@ -867,11 +882,17 @@ function showWaiting() {
   const oauthState = new URLSearchParams(location.search).get('oauth');
   if (oauthState) finishOAuth(oauthState);
   else {
-    let last = homeForTeam(state.me?.user.team);
-    try { last = localStorage.getItem(`siarin.view.${state.me.user.id}`) || last; } catch { /* mode privat */ }
-    if (document.querySelector(`#nav [data-view="${last}"]`)?.classList.contains('nav-extra')) last = homeForTeam(state.me?.user.team);
+    // Permalink (/konten, /adv, /cs, /planner, dst) menang atas "layar terakhir".
+    const fromPath = viewFromPath(location.pathname, VALID_VIEWS);
+    let last = fromPath;
+    if (!fromPath) {
+      last = homeForTeam(state.me?.user.team);
+      try { last = localStorage.getItem(`siarin.view.${state.me.user.id}`) || last; } catch { /* mode privat */ }
+      if (document.querySelector(`#nav [data-view="${last}"]`)?.classList.contains('nav-extra')) last = homeForTeam(state.me?.user.team);
+    }
     if (new URLSearchParams(location.search).get('inbox_oauth')) last = 'inbox'; // balik dari menghubungkan toko
-    show(document.getElementById(`view-${last}`) ? last : 'today');
+    const target = document.getElementById(`view-${last}`) ? last : 'today';
+    show(target, { replace: true });
   }
   setInterval(refreshViews, 10000);
 })();
