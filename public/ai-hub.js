@@ -379,7 +379,7 @@ document.addEventListener('click', async (e) => {
 
 // Alias lama: /aikeys & data-goto="aikeys" -> buka AI Studio, tab "Model & API Keys".
 S.viewHooks.aikeys = () => {
-  show('ai');
+  S.show('ai');
   requestAnimationFrame(() => {
     const btn = document.querySelector('#ai-tabs [data-hub="settings"]');
     if (btn) btn.click(); else toast('Model & API Key bisa diatur owner/admin di AI Studio');
