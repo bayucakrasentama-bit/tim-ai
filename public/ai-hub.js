@@ -380,10 +380,13 @@ document.addEventListener('click', async (e) => {
 // Alias lama: /aikeys & data-goto="aikeys" -> buka AI Studio, tab "Model & API Keys".
 S.viewHooks.aikeys = () => {
   S.show('ai');
-  requestAnimationFrame(() => {
+  const openSettings = () => {
     const btn = document.querySelector('#ai-tabs [data-hub="settings"]');
-    if (btn) btn.click(); else toast('Model & API Key bisa diatur owner/admin di AI Studio');
-  });
+    if (!btn) { toast('Model & API Key bisa diatur owner/admin di AI Studio'); return; }
+    if (!btn.classList.contains('active')) btn.click();
+  };
+  requestAnimationFrame(openSettings);
+  setTimeout(openSettings, 450); // kalah race dengan render async suite → klik ulang bila perlu
 };
 const prevAi = S.viewHooks.ai;
 S.viewHooks.ai = () => { ensureAiTabs(); prevAi?.(); };
