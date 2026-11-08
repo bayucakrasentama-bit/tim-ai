@@ -348,7 +348,7 @@ function aiTool(id) {
       try {
         const r = await api('/api/free-tools/ai', json('POST', { tool: id, ...vals(root) }));
         out(root, `<div class="card">${copyBox(r.text, 14)}</div>`);
-      } catch (ex2) { out(root, `<div class="check bad">${esc(ex2.message)}${/API key|belum aktif/i.test(ex2.message) ? ' <button class="ghost small" data-ft-go="aikeys">Buka AI &amp; API Keys</button>' : ''}</div>`); }
+      } catch (ex2) { out(root, `<div class="check bad">${esc(ex2.message)}${/API key|belum aktif/i.test(ex2.message) ? ' <button class="ghost small" data-ft-go="aikeys">Buka Model & API Keys</button>' : ''}</div>`); }
       btn.disabled = false;
     });
   };

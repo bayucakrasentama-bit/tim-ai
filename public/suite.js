@@ -740,7 +740,7 @@ function aiSettingsHtml() {
   const g = aiStatus.gemini;
   const manage = ['owner', 'admin'].includes(state.me?.user?.role);
   const head = aiStatus.routed
-    ? `<span class="status success">AI aktif</span> <b>${esc(aiStatus.routed.provider)}</b> · <code>${esc(aiStatus.routed.model)}</code> <span class="hint">· model default dari <button class="link" data-goto="aikeys">AI & API Keys</button></span>`
+    ? `<span class="status success">AI aktif</span> <b>${esc(aiStatus.routed.provider)}</b> · <code>${esc(aiStatus.routed.model)}</code> <span class="hint">· model default dari tab <button class="link" data-goto="aikeys">Model & API Keys</button></span>`
     : aiStatus.enabled
     ? `<span class="status success">AI aktif</span> <b>${aiStatus.provider === 'gemini' ? 'Google Gemini' : 'Claude'}</b> · <code>${esc(aiStatus.model)}</code>${aiStatus.provider === 'gemini' && g.key_source ? ` <span class="hint">· pakai ${AI_SRC[g.key_source]}</span>` : ''}`
     : '<span class="status failed">AI belum aktif</span> Tempel API key Gemini kamu di bawah.';

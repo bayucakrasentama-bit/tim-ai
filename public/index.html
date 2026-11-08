@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <script>try{var t=localStorage.getItem('timai.theme');if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem('timai.sb')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
-  <link rel="stylesheet" href="/dist/app.min.css" onerror="this.remove();['style','ds','agents','focus'].forEach(function(n){var l=document.createElement('link');l.rel='stylesheet';l.href='/'+n+'.css';document.head.appendChild(l)})">
+  <link rel="stylesheet" href="/dist/app.min.css" onerror="this.remove();['style','ds','agents','focus','theme-v4'].forEach(function(n){var l=document.createElement('link');l.rel='stylesheet';l.href='/'+n+'.css';document.head.appendChild(l)})">
 </head>
 <body>
   <!-- Tata letak: sidebar kiri (menu per tim) + area kerja. Di HP sidebar jadi menu geser. -->
@@ -53,7 +53,8 @@
 <span class="nav-group" data-group="all">Alat</span>
 <button data-view="freetools" data-team="konten medsos digital adv mp live kol affiliate cs sales keuangan founder">Free Tools</button>
 <span class="nav-group" data-group="all">Pengaturan</span>
-<button data-view="aikeys" data-team="">AI &amp; API Keys</button>
+<!-- Digabung ke AI Studio (tab Model & API Keys); tombol disembunyikan, rute lama tetap jalan. -->
+      <button data-view="aikeys" data-team="" hidden style="display:none">AI &amp; API Keys</button>
 <button data-view="integrations" data-team="medsos adv mp kol affiliate">Integrasi Cepat</button>
 <button data-view="team" data-team="">Tim &amp; Brand</button>
 <button id="nav-more" class="nav-more" hidden>Semua menu ▾</button>

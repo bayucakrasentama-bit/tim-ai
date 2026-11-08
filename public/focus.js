@@ -27,7 +27,7 @@ const HUBS = [
   ['affiliate', 'Affiliate', [['affiliate', 'Kreator Affiliate'], ['tools-affiliate', 'Tools']]],
   ['cs', 'CS', [['inbox', 'Inbox'], ['closer', 'CS AI'], ['cs', 'Tiket & Template'], ['tools-cs', 'Tools']]],
   ['laporan', 'Laporan', [['reports', 'Laporan'], ['analytics', 'Analitik'], ['history', 'Riwayat Post'], ['tiktok', 'Riset TikTok']]],
-  ['pengaturan', 'Pengaturan', [['team', 'Brand & Anggota'], ['aikeys', 'AI & API Keys'], ['integrations', 'Integrasi'], ['accounts', 'Akun Sosmed']]],
+  ['pengaturan', 'Pengaturan', [['team', 'Brand & Anggota'], ['aikeys', 'Model & API Keys'], ['integrations', 'Integrasi'], ['accounts', 'Akun Sosmed']]],
 ];
 const LAB = [];
 // Tidak tampil di sidebar Mode Fokus (isinya sudah ada di tab tim), tetap bisa dibuka lewat Ctrl+K / show().

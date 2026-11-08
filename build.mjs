@@ -21,7 +21,7 @@ await build({
   logLevel: 'warning',
 });
 // CSS: urutan sama dengan <link> di index.html (yang belakangan menimpa yang depan).
-const css = ['style.css', 'ds.css', 'agents.css', 'focus.css'].map((f) => readFileSync(`public/${f}`, 'utf8')).join('\n');
+const css = ['style.css', 'ds.css', 'agents.css', 'focus.css', 'theme-v4.css'].map((f) => readFileSync(`public/${f}`, 'utf8')).join('\n');
 writeFileSync('public/dist/_all.css', css);
 await build({ entryPoints: ['public/dist/_all.css'], bundle: true, minify: true, outfile: 'public/dist/app.min.css', logLevel: 'warning', external: ['/*'] });
 rmSync('public/dist/_all.css');
