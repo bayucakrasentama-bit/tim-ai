@@ -13,6 +13,7 @@ import { aiRouterRoutes } from './ai-router.js';
 import { opsRoutes, notifyFailedPosts } from './ops.js';
 import { founderRoutes, runFounderBriefs } from './founder.js';
 import { factoryRoutes } from './factory/routes.js';
+import { fotoAiRoutes } from './foto-ai.js';
 import { factoryAgentRoutes } from './factory/agent-routes.js';
 import { brandStoreRoutes } from './brand-store.js';
 import { teamRoutes, brandScope } from './team.js';
@@ -55,6 +56,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   app.use('/api/ai/extract', express.json({ limit: '4mb' }));
   // Template LP dari referensi bisa membawa gambar tertanam (base64), jadi body-nya besar.
   app.use('/api/lp-pages', express.json({ limit: '4mb' }));
+  app.use('/api/foto-ai', express.json({ limit: '12mb' }));
   // Webhook chat butuh body mentah untuk verifikasi tanda tangan platform.
   app.use('/api/chat/webhook', express.raw({ type: '*/*', limit: '2mb' }), (req, _res, next) => {
     req.rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
@@ -187,6 +189,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   partnerToolRoutes(app, db);
   partnerRoutes(app, db);
   lpRoutes(app, db, scope);
+  fotoAiRoutes(app, db, scope);
   connectRoutes(app, db, scope);
   inboxRoutes(app, db, scope, { storage, ownerUsername: username });
   reportRoutes(app, db, scope, { ownerUsername: username });

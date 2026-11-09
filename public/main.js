@@ -20,6 +20,7 @@ import './planner-views.js';
 import './divisions.js';
 import './medsos.js';
 import './studio-ai.js';
+import './foto-ai.js';
 import './store.js';
 import './agents.js';
 import './factory.js';
