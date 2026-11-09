@@ -47,11 +47,13 @@ test('claim: antrean kosong -> null; peek false', async () => {
 
 test('claim: prioritas, menyiapkan, profil objek, resume, progress monoton, pause, heartbeat, done', async () => {
   const p = await approvedProduct();
-  const a = await mkJob(p); const b = await mkJob(p);
+  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_speed: 1.12, preset: 'brand-box', look: 'warm-honey', duration_seconds: 20 };
+  const a = await mkJob(p); const b = await mkJob(p, { options });
   await t.call('POST', `/api/factory/jobs/${b.id}/priority`, { priority: 5 });
   assert.deepEqual((await agent('GET', '/peek')).body, { waiting: true });
   const c1 = (await agent('POST', '/claim', {})).body.job;
   assert.equal(c1.id, b.id);
+  assert.deepEqual(c1.options, { ...options, voice_id: 'auto', gender: 'auto', accent: 'auto' });
   assert.equal(typeof c1.product.profile, 'object');
   assert.equal(c1.product.product_image, '/uploads/a.png');
   assert.equal(c1.product.label_image, '/uploads/b.png');

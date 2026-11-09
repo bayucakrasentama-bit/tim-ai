@@ -28,6 +28,7 @@ export function factoryAgentRoutes(app, db, { token } = {}) {
     const profile_version = crypto.createHash('sha256').update(JSON.stringify([p.profile, p.product_image, p.label_image])).digest('hex').slice(0, 16);
     return {
       id: j.id, brand_id: j.brand_id, target: j.target, cta: j.cta, footage_url: j.footage_url, done: j.done, drive_url: j.drive_url,
+      options: (() => { try { return JSON.parse(j.options || '{}'); } catch { return {}; } })(),
       product: {
         id: p.id, slug: p.slug, name: p.name, profile: parse(p.profile), product_image: p.product_image, label_image: p.label_image,
         updated_at: p.updated_at, profile_version,

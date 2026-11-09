@@ -6,6 +6,7 @@ import { getSetting, now } from '../db.js';
 import { askClaude } from '../ai.js';
 import { canManage } from '../auth.js';
 import { slugify, parseFolderId, validateProfile, PROFILE_FIELDS, PALETTE_KEYS, normalizePalette, defaultRules } from './profile.js';
+import { PERSONAS, PRESETS, LOOKS, SPEEDS, DURATIONS, DEFAULT_OPTIONS, normalizeOptions } from './options.js';
 
 let ask = askClaude;
 // Tes mengganti pemanggil AI; null mengembalikan yang asli.
@@ -259,7 +260,16 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const id = Number(req.params.id);
     return Number.isInteger(id) ? db.get('SELECT * FROM factory_jobs WHERE id = ? AND brand_id = ?', id, req.brand.id) : null;
   };
-  const reloadJob = (id) => db.get('SELECT * FROM factory_jobs WHERE id = ?', id);
+  const reloadJob = async (id) => {
+    const row = await db.get('SELECT * FROM factory_jobs WHERE id = ?', id);
+    if (!row) return row;
+    try { row.options = JSON.parse(row.options || '{}'); } catch { row.options = { ...DEFAULT_OPTIONS }; }
+    return row;
+  };
+
+  app.get('/api/factory/options', scope, async (_req, res) => res.json({
+    personas: PERSONAS, presets: PRESETS, looks: LOOKS, voice_speeds: SPEEDS, durations: DURATIONS,
+  }));
 
   // Antrean FIFO lintas brand: prioritas tertinggi dulu, lalu id terkecil.
   app.get('/api/factory/jobs', scope, async (req, res) => {
@@ -270,7 +280,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const queue = await db.all("SELECT id FROM factory_jobs WHERE status = 'antre' ORDER BY priority DESC, id ASC");
     const pos = new Map(queue.map((q, i) => [Number(q.id), i + 1]));
     res.json({
-      jobs: rows.map((j) => ({ ...j, queue_position: j.status === 'antre' ? pos.get(Number(j.id)) ?? null : null })),
+      jobs: rows.map((j) => ({ ...j, options: (() => { try { return JSON.parse(j.options || '{}'); } catch { return { ...DEFAULT_OPTIONS }; } })(), queue_position: j.status === 'antre' ? pos.get(Number(j.id)) ?? null : null })),
       agent: await agentState(db),
     });
   });
@@ -284,10 +294,12 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     if (!parseFolderId(footage)) return err(res, 400, 'Link harus folder Google Drive');
     const product = await db.get('SELECT * FROM factory_products WHERE id = ? AND brand_id = ?', Number(b.product_id), req.brand.id);
     if (!product) return err(res, 404, 'Produk nggak ketemu');
+    const options = normalizeOptions(b.options, (() => { try { return JSON.parse(product.profile || '{}'); } catch { return {}; } })());
+    if (options.error) return err(res, 400, options.error);
     const t = now();
     const [row] = await db.run(
-      'INSERT INTO factory_jobs (brand_id, product_id, target, cta, footage_url, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-      req.brand.id, product.id, target, b.cta, footage, product.status === 'approved' ? 'antre' : 'menunggu_profil', req.user.username, t, t,
+      'INSERT INTO factory_jobs (brand_id, product_id, target, cta, footage_url, options, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      req.brand.id, product.id, target, b.cta, footage, JSON.stringify(options.value), product.status === 'approved' ? 'antre' : 'menunggu_profil', req.user.username, t, t,
     );
     res.json({ job: await reloadJob(row.id) });
   });
