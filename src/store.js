@@ -132,7 +132,8 @@ function rowToProduct(r) {
   return { ...r, price: Number(r.price) || 0, price_old: r.price_old == null ? null : Number(r.price_old), published: !!r.published, benefits };
 }
 
-export function storeRoutes(app, db, scope) {
+// Route publik (tanpa login) — dipasang SEBELUM auth gate di app.js.
+export function storePublicRoutes(app, db) {
   // Katalog (publik, hanya yang published)
   app.get('/api/katalog/products', async (_req, res) => {
     await seedIfEmpty(db);
@@ -148,7 +149,10 @@ export function storeRoutes(app, db, scope) {
     if (!row || !row.published) return res.status(404).json({ error: 'Produk nggak ketemu' });
     res.json({ product: rowToProduct(row) });
   });
+}
 
+// Route kelola (butuh login).
+export function storeRoutes(app, db, scope) {
   // Kelola (semua produk termasuk draft)
   app.get('/api/katalog/admin/products', scope, async (_req, res) => {
     await seedIfEmpty(db);
