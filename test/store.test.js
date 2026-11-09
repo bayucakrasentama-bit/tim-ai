@@ -7,7 +7,7 @@ before(async () => { t = await startApp(); });
 after(async () => { await t.close(); });
 
 test('katalog: seed 11 produk dari riset kompetitor', async () => {
-  const r = await t.call('GET', '/api/store/products');
+  const r = await t.call('GET', '/api/katalog/products');
   assert.equal(r.status, 200);
   assert.equal(r.body.products.length, 11);
   const slugs = r.body.products.map((p) => p.slug);
@@ -22,17 +22,17 @@ test('katalog: seed 11 produk dari riset kompetitor', async () => {
 });
 
 test('detail per slug', async () => {
-  const r = await t.call('GET', '/api/store/products/voice-gen');
+  const r = await t.call('GET', '/api/katalog/products/voice-gen');
   assert.equal(r.status, 200);
   assert.equal(r.body.product.slug, 'voice-gen');
   assert.ok(r.body.product.description.includes('kloning') || r.body.product.description.includes('Voice'));
 
-  const nf = await t.call('GET', '/api/store/products/nggak-ada');
+  const nf = await t.call('GET', '/api/katalog/products/nggak-ada');
   assert.equal(nf.status, 404);
 });
 
 test('admin: katalog lengkap termasuk draft', async () => {
-  const r = await t.call('GET', '/api/store/admin/products');
+  const r = await t.call('GET', '/api/katalog/admin/products');
   assert.equal(r.status, 200);
   assert.ok(r.body.products.length >= 11);
 });

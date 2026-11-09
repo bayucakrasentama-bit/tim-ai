@@ -134,14 +134,14 @@ function rowToProduct(r) {
 
 export function storeRoutes(app, db, scope) {
   // Katalog (publik, hanya yang published)
-  app.get('/api/store/products', async (_req, res) => {
+  app.get('/api/katalog/products', async (_req, res) => {
     await seedIfEmpty(db);
     const rows = await db.all('SELECT * FROM store_products WHERE published = 1 ORDER BY sort, id');
     res.json({ products: rows.map(rowToProduct) });
   });
 
   // Detail per slug (publik)
-  app.get('/api/store/products/:slug', async (req, res) => {
+  app.get('/api/katalog/products/:slug', async (req, res) => {
     await seedIfEmpty(db);
     const rows = await db.all('SELECT * FROM store_products WHERE slug = ?', req.params.slug);
     const row = rows[0];
@@ -150,13 +150,13 @@ export function storeRoutes(app, db, scope) {
   });
 
   // Kelola (semua produk termasuk draft)
-  app.get('/api/store/admin/products', scope, async (_req, res) => {
+  app.get('/api/katalog/admin/products', scope, async (_req, res) => {
     await seedIfEmpty(db);
     const rows = await db.all('SELECT * FROM store_products ORDER BY sort, id');
     res.json({ products: rows.map(rowToProduct) });
   });
 
-  app.post('/api/store/admin/products', scope, async (req, res) => {
+  app.post('/api/katalog/admin/products', scope, async (req, res) => {
     const b = req.body || {};
     if (!b.slug || !b.title) return res.status(400).json({ error: 'slug & title wajib' });
     const t = now();
@@ -174,7 +174,7 @@ export function storeRoutes(app, db, scope) {
     }
   });
 
-  app.patch('/api/store/admin/products/:id', scope, async (req, res) => {
+  app.patch('/api/katalog/admin/products/:id', scope, async (req, res) => {
     const b = req.body || {};
     const fields = { title: 1, category: 1, price: 1, price_old: 1, summary: 1, description: 1, benefits: 1, angle: 1, url: 1, published: 1, sort: 1 };
     const sets = [];
@@ -193,7 +193,7 @@ export function storeRoutes(app, db, scope) {
     res.json({ product: rowToProduct(rows[0]) });
   });
 
-  app.delete('/api/store/admin/products/:id', scope, async (req, res) => {
+  app.delete('/api/katalog/admin/products/:id', scope, async (req, res) => {
     await db.run('DELETE FROM store_products WHERE id = ?', req.params.id);
     res.json({ ok: true });
   });

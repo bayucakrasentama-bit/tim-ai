@@ -2,7 +2,7 @@
 (() => {
   const S = window.S || (window.S = {});
   const v = () => $('#view-store');
-  const R = () => '/api/store';
+  const R = () => '/api/katalog';
   let products = [];
   let view = 'catalog';
 
