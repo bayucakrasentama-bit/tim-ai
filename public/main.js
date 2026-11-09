@@ -2,6 +2,7 @@
 // shell.js; assistant.js terakhir). Saat deploy, build.mjs mem-bundle file ini jadi /dist/app.min.js.
 // Tanpa build (jalan lokal), index.html memuat file ini langsung sebagai ES module biasa.
 import './app.js';
+import './store-client.js'; // window.timStore — SEBELUM modul yang memakainya (agents, cs-closer, today)
 import './suite.js';
 import './motion.js';
 import './teams.js';

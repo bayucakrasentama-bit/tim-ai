@@ -1,6 +1,8 @@
 /* Toko Digital — katalog produk ala lynk.id: kartu produk, harga coret, benefits, CTA link. */
 (() => {
-  const S = window.S || (window.S = {});
+  const S = window.siarin;
+  const { api, esc, toast } = S;
+  const $ = (sel, el = document) => el.querySelector(sel);
   const v = () => $('#view-store');
   const R = () => '/api/katalog';
   let products = [];

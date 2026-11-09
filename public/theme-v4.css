@@ -1,277 +1,214 @@
 /* ============================================================
-   theme-v4.css — "Mengantar style" (2026-11-08)
-   Palet: royal blue #2e47ba · periwinkle #93a6ff · navy ink #203551
-   Canvas terang #f6f8fc · radius 12/8 · transisi all .25s ease
-   Motion: rebound click, fade+slide view, stagger, glow focus.
-   Dimuat TERAKHIR (setelah style.css + ds.css) sehingga token
-   di file ini yang menang.
+   theme-v4.css — "Meja Redaksi" (2026-11-10)
+   Palet: kertas hangat #f4f2ec · tinta #21262c · navy tautan #2a4a6b
+   Aksen utama tombol = tinta hitam (bukan gradasi). Garis rambut,
+   radius 10/8, bayangan tipis. Judul serif editorial (Fraunces),
+   mikro-label mono. Tanpa glow, glass, shimmer, atau angkat-hover.
+   Dimuat TERAKHIR (setelah style.css + ds.css + agents + factory +
+   focus) sehingga token di file ini yang menang. Nama variabel
+   dipertahankan supaya modul lama tetap jalan.
    ============================================================ */
 
 /* ---------- 1. TOKEN ---------- */
 :root, :root[data-theme="light"] {
-  --bg: #f6f8fc;
+  --bg: #f4f2ec;
   --card: #ffffff;
-  --card-2: #f2f4f8;
-  --hover: #eef2f8;
-  --text: #203551;
-  --muted: #6c7e95;
-  --line: #e0e9f4;
-  --line-strong: #c8d6ea;
-  --accent: #2e47ba;
-  --accent-2: #93a6ff;
-  --accent-soft: rgba(46, 71, 186, .10);
-  --accent-ink: #263b9a;
-  --grad: linear-gradient(135deg, #2e47ba 0%, #4a63d8 55%, #93a6ff 100%);
-  --grad-soft: linear-gradient(135deg, rgba(46,71,186,.12), rgba(147,166,255,.20));
-  --hover-glow: rgba(147, 166, 255, .5);
-  --ai: #2e47ba; --ai-2: #93a6ff; --ai-soft: rgba(46,71,186,.10); --cyan: #93a6ff;
-  --ok: #3f9e1f; --ok-soft: #eaf6e2;
-  --warn: #e07f00; --warn-soft: #fdf1dd;
-  --bad: #da1414; --bad-soft: #fbe7e7;
-  --info: #2c7df6; --info-soft: #e7f0fe;
-  --radius: 12px; --radius-sm: 8px; --radius-lg: 12px;
-  --shadow-sm: 0 1px 2px rgba(32, 53, 81, .06);
-  --shadow: 0 1px 3px rgba(32, 53, 81, .05), 0 12px 28px -14px rgba(32, 53, 81, .22);
-  --shadow-pop: 0 0 0 1px var(--line), 0 18px 48px -12px rgba(32, 53, 81, .28);
-  --focus-ring: 0 0 0 .15rem var(--hover-glow);
-  --ease: cubic-bezier(.215, .61, .355, 1);
+  --card-2: #ece9e1;
+  --hover: #e9e5db;
+  --text: #21262c;
+  --muted: #6f6a5c;
+  --line: #e3ded2;
+  --line-strong: #cec7b6;
+  --accent: #2a4a6b;
+  --accent-2: #3d6288;
+  --accent-soft: #e6ecf2;
+  --accent-ink: #1e3a57;
+  --grad: #2a4a6b;
+  --grad-soft: #e6ecf2;
+  --hover-glow: rgba(42, 74, 107, .30);
+  --ai: #2a4a6b; --ai-2: #3d6288; --ai-soft: rgba(42, 74, 107, .10); --cyan: #3d6288;
+  --ok: #3e7d4f; --ok-soft: #e7f0e8;
+  --warn: #a96e1b; --warn-soft: #f5eddc;
+  --bad: #b23b2e; --bad-soft: #f6e6e2;
+  --info: #2a6fa8; --info-soft: #e4edf5;
+  --ink: #1c2126;
+  --radius: 10px; --radius-sm: 8px; --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(33, 38, 44, .05);
+  --shadow: 0 1px 2px rgba(33, 38, 44, .05), 0 10px 24px -14px rgba(33, 38, 44, .16);
+  --shadow-pop: 0 0 0 1px var(--line), 0 14px 36px -16px rgba(33, 38, 44, .22);
+  --focus-ring: 0 0 0 3px rgba(42, 74, 107, .16);
+  --ease: cubic-bezier(.2, .7, .3, 1);
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
 }
 
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #101625;
-  --card: #1a2334;
-  --card-2: #202b40;
-  --hover: #263349;
-  --text: #e8edf6;
-  --muted: #8fa3bd;
-  --line: rgba(147, 166, 255, .14);
-  --line-strong: rgba(147, 166, 255, .28);
-  --accent: #93a6ff;
-  --accent-2: #7f95e8;
-  --accent-soft: rgba(147, 166, 255, .14);
-  --accent-ink: #b6c4ff;
-  --grad: linear-gradient(135deg, #4a63d8, #93a6ff);
-  --grad-soft: linear-gradient(135deg, rgba(74,99,216,.18), rgba(147,166,255,.24));
-  --hover-glow: rgba(147, 166, 255, .4);
-  --ai: #93a6ff; --ai-2: #7f95e8; --ai-soft: rgba(147,166,255,.14); --cyan: #93a6ff;
-  --ok: #6fc94a; --ok-soft: rgba(111,201,74,.14);
-  --warn: #ffb347; --warn-soft: rgba(255,179,71,.14);
-  --bad: #ff7b7b; --bad-soft: rgba(255,123,123,.14);
-  --info: #7fb2ff; --info-soft: rgba(127,178,255,.14);
+  --bg: #14171a;
+  --card: #1d2126;
+  --card-2: #242a30;
+  --hover: #2a313a;
+  --text: #e7e4dc;
+  --muted: #9a948a;
+  --line: rgba(231, 228, 220, .10);
+  --line-strong: rgba(231, 228, 220, .22);
+  --accent: #86a9cc;
+  --accent-2: #6d93b8;
+  --accent-soft: rgba(134, 169, 204, .14);
+  --accent-ink: #a9c4dc;
+  --grad: #86a9cc;
+  --grad-soft: rgba(134, 169, 204, .12);
+  --hover-glow: rgba(134, 169, 204, .30);
+  --ai: #86a9cc; --ai-2: #6d93b8; --ai-soft: rgba(134, 169, 204, .14); --cyan: #86a9cc;
+  --ok: #7fb98c; --ok-soft: rgba(127, 185, 140, .14);
+  --warn: #d2a05b; --warn-soft: rgba(210, 160, 91, .14);
+  --bad: #d97a6b; --bad-soft: rgba(217, 122, 107, .14);
+  --info: #7faedb; --info-soft: rgba(127, 174, 219, .14);
+  --ink: #e7e4dc;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
-  --shadow: 0 1px 3px rgba(0, 0, 0, .3), 0 14px 32px -14px rgba(0, 0, 0, .55);
-  --shadow-pop: 0 0 0 1px var(--line), 0 20px 52px -12px rgba(0, 0, 0, .6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 28px -16px rgba(0, 0, 0, .55);
+  --shadow-pop: 0 0 0 1px var(--line), 0 16px 40px -16px rgba(0, 0, 0, .6);
+  --focus-ring: 0 0 0 3px rgba(134, 169, 204, .22);
 } }
 
 :root[data-theme="dark"] {
-  --bg: #101625;
-  --card: #1a2334;
-  --card-2: #202b40;
-  --hover: #263349;
-  --text: #e8edf6;
-  --muted: #8fa3bd;
-  --line: rgba(147, 166, 255, .14);
-  --line-strong: rgba(147, 166, 255, .28);
-  --accent: #93a6ff;
-  --accent-2: #7f95e8;
-  --accent-soft: rgba(147, 166, 255, .14);
-  --accent-ink: #b6c4ff;
-  --grad: linear-gradient(135deg, #4a63d8, #93a6ff);
-  --grad-soft: linear-gradient(135deg, rgba(74,99,216,.18), rgba(147,166,255,.24));
-  --hover-glow: rgba(147, 166, 255, .4);
-  --ai: #93a6ff; --ai-2: #7f95e8; --ai-soft: rgba(147,166,255,.14); --cyan: #93a6ff;
-  --ok: #6fc94a; --ok-soft: rgba(111,201,74,.14);
-  --warn: #ffb347; --warn-soft: rgba(255,179,71,.14);
-  --bad: #ff7b7b; --bad-soft: rgba(255,123,123,.14);
-  --info: #7fb2ff; --info-soft: rgba(127,178,255,.14);
+  --bg: #14171a;
+  --card: #1d2126;
+  --card-2: #242a30;
+  --hover: #2a313a;
+  --text: #e7e4dc;
+  --muted: #9a948a;
+  --line: rgba(231, 228, 220, .10);
+  --line-strong: rgba(231, 228, 220, .22);
+  --accent: #86a9cc;
+  --accent-2: #6d93b8;
+  --accent-soft: rgba(134, 169, 204, .14);
+  --accent-ink: #a9c4dc;
+  --grad: #86a9cc;
+  --grad-soft: rgba(134, 169, 204, .12);
+  --hover-glow: rgba(134, 169, 204, .30);
+  --ai: #86a9cc; --ai-2: #6d93b8; --ai-soft: rgba(134, 169, 204, .14); --cyan: #86a9cc;
+  --ok: #7fb98c; --ok-soft: rgba(127, 185, 140, .14);
+  --warn: #d2a05b; --warn-soft: rgba(210, 160, 91, .14);
+  --bad: #d97a6b; --bad-soft: rgba(217, 122, 107, .14);
+  --info: #7faedb; --info-soft: rgba(127, 174, 219, .14);
+  --ink: #e7e4dc;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
-  --shadow: 0 1px 3px rgba(0, 0, 0, .3), 0 14px 32px -14px rgba(0, 0, 0, .55);
-  --shadow-pop: 0 0 0 1px var(--line), 0 20px 52px -12px rgba(0, 0, 0, .6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 28px -16px rgba(0, 0, 0, .55);
+  --shadow-pop: 0 0 0 1px var(--line), 0 16px 40px -16px rgba(0, 0, 0, .6);
+  --focus-ring: 0 0 0 3px rgba(134, 169, 204, .22);
 }
 
-/* ---------- 2. KEYFRAME (rebound ala Mengantar) ---------- */
-@keyframes rebound {
-  0% { transform: scale(.8); }
-  40% { transform: scale(1.08); }
-  80% { transform: scale(.98); }
-  100% { transform: scale(1); }
+/* ---------- 2. TIPOGRAFI ---------- */
+body { font-family: var(--font-ui); }
+h1, h2, .page-title, .brand, .login .brand {
+  font-family: var(--font-display);
+  font-weight: 560;
+  letter-spacing: -.01em;
 }
-@keyframes reboundClick {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.05); }
-  80% { transform: scale(.96); }
-  100% { transform: scale(1); }
+h1, .page-title { font-size: 25px; line-height: 1.2; }
+h2 { font-size: 18px; line-height: 1.25; }
+h3 { font-weight: 650; letter-spacing: -.008em; }
+h1, h2, h3 { color: var(--text); }
+.hint, .page-sub, .kpi-sub { color: var(--muted); }
+.label, .kpi-label, .tile-label, table thead th, .nav-group, .seg button, .tg-head span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
-@keyframes delayOpacity {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-@keyframes viewIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes toastIn {
-  from { opacity: 0; transform: translateY(14px) scale(.97); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes barInX {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-@keyframes barInY {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+table thead th { color: var(--muted); }
+.kpi-value, .kpi-big, .delta, .mono, code, pre { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* ---------- 3. DASAR & TRANSISI SIGNATURE ---------- */
-body {
-  animation: delayOpacity .35s ease both;
-  transition: background .25s ease;
-}
-button, .btn, .link, .chip, .tag, .tab-btn,
-input, select, textarea, .inline-input {
-  transition: all .25s ease;
-}
+/* ---------- 3. PERMUKAAN (kartu datar, garis rambut) ---------- */
 .card, .kpi, .kcard, .gen-card, .key-card, .p-card, .arena-col,
-.settings-card, .today-card, .today-task, .qz-card, .badge {
-  transition: all .25s ease;
-}
-h1, h2, h3, .page-title { letter-spacing: -.015em; }
-
-/* ---------- 4. VIEW TRANSITION + STAGGER ---------- */
-.view.active { animation: viewIn .28s var(--ease) both; }
-.kpi-row > .kpi, .kpi-grid > *, .key-grid > *, .grid-2 > .card,
-.gen-card, .arena-col, .p-col .p-card, .settings-card, .today-card {
-  animation: delayOpacity .4s ease both;
-}
-.kpi-row > .kpi:nth-child(2), .kpi-grid > *:nth-child(2), .key-grid > *:nth-child(2), .grid-2 > .card:nth-child(2) { animation-delay: .06s; }
-.kpi-row > .kpi:nth-child(3), .kpi-grid > *:nth-child(3), .key-grid > *:nth-child(3), .grid-2 > .card:nth-child(3) { animation-delay: .12s; }
-.kpi-row > .kpi:nth-child(4), .kpi-grid > *:nth-child(4), .key-grid > *:nth-child(4), .grid-2 > .card:nth-child(4) { animation-delay: .18s; }
-.kpi-row > .kpi:nth-child(5), .kpi-grid > *:nth-child(5), .key-grid > *:nth-child(5) { animation-delay: .24s; }
-.kpi-row > .kpi:nth-child(6), .kpi-grid > *:nth-child(6), .key-grid > *:nth-child(6) { animation-delay: .3s; }
-table tbody tr { animation: delayOpacity .35s ease both; }
-table tbody tr:nth-child(2) { animation-delay: .04s; }
-table tbody tr:nth-child(3) { animation-delay: .08s; }
-table tbody tr:nth-child(4) { animation-delay: .12s; }
-table tbody tr:nth-child(5) { animation-delay: .16s; }
-table tbody tr:nth-child(n+6) { animation-delay: .2s; }
-
-/* ---------- 5. TOMBOL ---------- */
-button, .btn {
-  border-radius: 10px;
-  font-weight: 600;
-}
-button.primary, .btn.primary, .primary[type="submit"] {
-  background: var(--grad);
-  background-size: 150% 150%;
-  color: #fff;
-  border: none;
-  box-shadow: 0 6px 16px -6px rgba(46, 71, 186, .5);
-}
-:root[data-theme="dark"] button.primary,
-:root[data-theme="dark"] .btn.primary { color: #101625; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.primary,
-  :root:not([data-theme="light"]) .btn.primary { color: #101625; } }
-button.primary:hover, .btn.primary:hover {
-  background-position: 100% 0;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px -8px rgba(46, 71, 186, .6);
-}
-button.ghost:hover, .btn.ghost:hover, .ghost:hover {
-  background: var(--hover);
-  border-color: var(--line-strong);
-  transform: translateY(-1px);
-}
-button:active:not(:disabled), .btn:active {
-  animation: reboundClick .35s ease;
-}
-button:disabled { opacity: .55; cursor: not-allowed; }
-.link {
-  color: var(--accent);
-  font-weight: 600;
-}
-.link:hover { color: var(--accent-ink); text-decoration: underline; }
-
-/* ---------- 6. KARTU / KPI ---------- */
-.card, .kpi, .kcard, .gen-card, .key-card, .settings-card {
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
+.settings-card, .today-card, .today-task, .qz-card, .int-card, .p-col, .lpb-sec,
+.modal-box, .pv-card, .pm-card, .q-card {
   background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
 }
-.card:hover, .kcard:hover, .gen-card:hover, .key-card:hover, .settings-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-pop);
+.card:hover, .kcard:hover, .gen-card:hover, .key-card:hover, .settings-card:hover,
+.kpi:hover, .today-card:hover, .qz-card:hover, .pv-card:hover, .pm-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
   border-color: var(--line-strong);
 }
-.kpi:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-pop);
-}
-.kpi-value { letter-spacing: -.025em; }
-.kpi:hover .kpi-value { color: var(--accent-ink); }
-
-/* ---------- 7. NAV & TABS ---------- */
-#nav button {
-  position: relative;
-  border-radius: 10px;
-}
-#nav button:hover { transform: translateX(2px); background: var(--hover); }
-#nav button.active {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  animation: rebound .3s ease;
-}
-#nav button.active::before {
-  content: '';
-  position: absolute;
-  left: -2px;
-  top: 22%;
-  bottom: 22%;
-  width: 3px;
+.badge, .tag, .chip, .pill {
   border-radius: 999px;
-  background: var(--grad);
-  transform-origin: center;
-  animation: barInY .3s var(--ease) both;
+  font-weight: 600;
+  letter-spacing: .01em;
 }
-.tabs button, #ai-tabs button, .tab-btn {
-  position: relative;
-  border-radius: 10px 10px 0 0;
+.sidebar {
+  background: var(--card-2);
+  border-right: 1px solid var(--line);
 }
-.tabs button:hover, #ai-tabs button:hover, .tab-btn:hover { color: var(--accent-ink); background: var(--accent-soft); }
-.tabs button.active, #ai-tabs button.active, .tab-btn.active {
-  color: var(--accent-ink);
-  background: transparent;
+.topbar, .mobilebar {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
 }
-.tabs button.active::after, #ai-tabs button.active::after, .tab-btn.active::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -1px;
-  height: 2.5px;
-  border-radius: 999px;
-  background: var(--grad);
-  transform-origin: left;
-  animation: barInX .3s var(--ease) both;
-}
-.nav-group-title { transition: all .25s ease; }
-.nav-group-title:hover { color: var(--accent-ink); }
+.brand { gap: 10px; }
+.logo { border-radius: 8px; background: var(--ink); }
 
-/* ---------- 8. INPUT ---------- */
+/* ---------- 4. TOMBOL (aksen utama = tinta, tanpa gradasi/angkat) ---------- */
+button, .btn, a.btn, label.btn {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  letter-spacing: -.002em;
+}
+button.primary, .btn.primary, a.btn.primary, .primary[type="submit"], button.big.primary {
+  background: var(--ink);
+  color: var(--bg);
+  border: 1px solid var(--ink);
+  box-shadow: none;
+}
+:root[data-theme="dark"] button.primary,
+:root[data-theme="dark"] .btn.primary,
+:root[data-theme="dark"] a.btn.primary { color: #14171a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) button.primary,
+  :root:not([data-theme="light"]) .btn.primary,
+  :root:not([data-theme="light"]) a.btn.primary { color: #14171a; }
+}
+button.primary:hover, .btn.primary:hover, a.btn.primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+button.ghost, .btn.ghost, .ghost, a.btn:not(.primary), label.btn, .cal-nav button, .icon-btn {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+button.ghost:hover, .btn.ghost:hover, .ghost:hover, a.btn:not(.primary):hover, label.btn:hover, .icon-btn:hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+  transform: none;
+}
+button:active:not(:disabled), .btn:active { animation: none; transform: none; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.danger { color: var(--bad); border-radius: var(--radius-sm); }
+.link { color: var(--accent); font-weight: 600; text-decoration: none; }
+.link:hover { color: var(--accent-ink); text-decoration: underline; }
+a:not(.btn):not(.link) { color: var(--accent); }
+
+/* ---------- 5. FORM ---------- */
 input, select, textarea, .inline-input, .ds-select {
   border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong);
   background: var(--card);
+  color: var(--text);
 }
-input:hover, select:hover, textarea:hover { border-color: var(--accent-2); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
+input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, .ds-select:focus-visible {
   outline: none;
-  border-color: var(--accent-2);
+  border-color: var(--accent);
   box-shadow: var(--focus-ring);
 }
 button:focus-visible, .btn:focus-visible, .link:focus-visible {
@@ -279,40 +216,159 @@ button:focus-visible, .btn:focus-visible, .link:focus-visible {
   box-shadow: var(--focus-ring);
 }
 
-/* ---------- 9. TOAST / SPINNER / CHECK ---------- */
+/* ---------- 6. NAV & TABS (indikator padat, tanpa rebound) ---------- */
+#nav button {
+  position: relative;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+}
+#nav button:hover { transform: none; background: var(--hover); }
+#nav button.active {
+  background: var(--card);
+  color: var(--accent-ink);
+  font-weight: 650;
+  animation: none;
+  box-shadow: var(--shadow-sm);
+}
+#nav button.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: none;
+}
+.nav-group-title:hover { color: var(--accent-ink); }
+.tabs button, #ai-tabs button, .tab-btn, .tp-tab {
+  position: relative;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.tabs button:hover, #ai-tabs button:hover, .tab-btn:hover { color: var(--accent-ink); background: var(--accent-soft); }
+.tabs button.active, #ai-tabs button.active, .tab-btn.active, .tp-tab.active {
+  color: var(--accent-ink);
+  background: transparent;
+}
+.tabs button.active::after, #ai-tabs button.active::after, .tab-btn.active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: none;
+}
+.seg {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+.seg button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.seg button[aria-selected="true"], .seg button.active, .seg button.on {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- 7. TABEL ---------- */
+table.data, table.ptable { background: var(--card); }
+table thead th {
+  border-bottom: 1px solid var(--line-strong);
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+table tbody td { border-bottom: 1px solid var(--line); }
+table tbody tr:hover td { background: var(--hover); }
+table tbody tr:hover td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+table.data td:not(:first-child) { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; }
+
+/* ---------- 8. KPI / BENTO ---------- */
+.kpi-value { letter-spacing: -.02em; }
+.kpi:hover .kpi-value { color: var(--text); }
+.tile, .kpi-tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.tile-head .tile-label { color: var(--muted); }
+.spark-line { stroke: var(--accent); }
+.spark-area { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.delta.flat { color: var(--muted); }
+.delta.up, .delta.good { color: var(--ok); }
+.delta.down, .delta.bad { color: var(--bad); }
+.pbar { background: var(--card-2); border-radius: 999px; overflow: hidden; }
+.pbar span { background: var(--accent); border-radius: 999px; }
+
+/* ---------- 9. MODAL / TOAST / TOOLTIP / SPINNER ---------- */
+.modal-box {
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+}
 .toast {
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: var(--card);
+  background: var(--ink);
+  color: var(--bg);
   box-shadow: var(--shadow-pop);
-  animation: toastIn .3s var(--ease) both;
+  animation: toastIn .25s var(--ease) both;
 }
-.check { border-radius: 10px; }
+.tooltip {
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 6px;
+}
+.spinner { animation: spin .9s linear infinite; border-color: var(--line-strong); border-top-color: var(--accent); }
+.check { border-radius: var(--radius-sm); }
 .check.ok { border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent); }
 .check.bad { border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); }
-.spinner { animation: spin .9s linear infinite, delayOpacity .3s ease both; }
 
-/* ---------- 10. POLESAN TAMBAHAN ---------- */
-::selection { background: rgba(147, 166, 255, .35); }
-code, .mono { font-family: var(--font-mono); }
-.tag, .badge {
-  border-radius: 999px;
-  font-weight: 600;
-  letter-spacing: .01em;
-}
-table thead th {
-  letter-spacing: .02em;
-  text-transform: uppercase;
-  font-size: 11px;
-}
-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
-.hint, .page-sub { color: var(--muted); }
-
-/* shimmer halus untuk blok gradasi (brand / hero) */
+/* ---------- 10. HARI INI / POLESAN ---------- */
+.td-actions, .td-progress, .td-col { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.td-item { border-bottom: 1px solid var(--line); }
+.td-item.tone-bad .td-title { color: var(--bad); }
+.td-item.tone-warn .td-title { color: var(--warn); }
+.td-item.tone-ok .td-title { color: var(--ok); }
+::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .hero-grad, .ai-default {
-  background-image: var(--grad-soft), linear-gradient(90deg, transparent 30%, rgba(147,166,255,.12) 50%, transparent 70%);
-  background-size: 100% 100%, 200% 100%;
-  animation: shimmer 6s linear infinite;
+  background-image: none;
+  background-color: var(--accent-soft);
+  animation: none;
+}
+code, .mono, .md-code, .copy-row code, .vid-views, .cp-line span {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* scrollbar tipis */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- 11. MOTION (minimal, hormati prefers-reduced-motion) ---------- */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes delayOpacity {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes viewIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+body { animation: delayOpacity .3s ease both; }
+.view.active { animation: viewIn .22s var(--ease) both; }
+button, .btn, .link, .chip, .tag, .tab-btn, input, select, textarea, .inline-input {
+  transition: background-color .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease), box-shadow .15s var(--ease);
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

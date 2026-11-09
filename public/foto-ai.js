@@ -1,6 +1,8 @@
 /* Foto AI — studio foto AI ala MantraFoto: pilih fitur, upload foto, hasil siap pakai. */
 (() => {
-  const S = window.S || (window.S = {});
+  const S = window.siarin;
+  const { api, esc, toast } = S;
+  const $ = (sel, el = document) => el.querySelector(sel);
   const v = () => $('#view-fotoai');
   const R = () => '/api/foto-ai';
   let state = { tools: [], sel: null, photos: [], ratio: '', results: [] };
