@@ -47,7 +47,7 @@ test('claim: antrean kosong -> null; peek false', async () => {
 
 test('claim: prioritas, menyiapkan, profil objek, resume, progress monoton, pause, heartbeat, done', async () => {
   const p = await approvedProduct();
-  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_speed: 1.12, preset: 'brand-box', look: 'warm-honey', duration_seconds: 20 };
+  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_speed: 1.1, preset: 'brand-box', look: 'warm-honey', duration_range: '15-30' };
   const a = await mkJob(p); const b = await mkJob(p, { options });
   await t.call('POST', `/api/factory/jobs/${b.id}/priority`, { priority: 5 });
   assert.deepEqual((await agent('GET', '/peek')).body, { waiting: true });

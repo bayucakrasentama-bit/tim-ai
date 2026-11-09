@@ -85,47 +85,55 @@ test('opsi produksi menyediakan persona beserta suara, gender, logat, preset/loo
   const r = await t.call('GET', '/api/factory/options');
   assert.equal(r.status, 200);
   assert.ok(r.body.personas.some((p) => p.id === 'jaktim_pria' && p.voice && p.gender && p.accent));
+  assert.ok(r.body.personas.some((p) => p.accent === 'Batak'));
   assert.ok(r.body.presets.includes('brand-box'));
   assert.ok(r.body.looks.includes('warm-honey'));
-  assert.equal(r.body.personas.length, 6);
-  assert.deepEqual(r.body.voice_speeds, [1.08, 1.12, 1.15]);
-  assert.deepEqual(r.body.durations, [15, 20, 25]);
+  assert.equal(r.body.personas.length, 15);
+  assert.deepEqual(r.body.voice_speeds, [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2]);
+  assert.deepEqual(r.body.durations, ['15-30', '30-45', '45-60']);
 });
 
-test('job tanpa override memakai baseline contoh: 25 detik dan tempo 1,12×', async () => {
+test('job tanpa override memakai baseline: durasi 15-30 detik dan tempo 1,00×', async () => {
   const p = await approvedProduct('Madu Baseline Manifest');
   const r = await job(p.id);
   assert.equal(r.status, 200);
-  assert.equal(r.body.job.options.duration_seconds, 25);
-  assert.equal(r.body.job.options.voice_speed, 1.12);
+  assert.equal(r.body.job.options.duration_range, '15-30');
+  assert.equal(r.body.job.options.voice_speed, 1.0);
   assert.deepEqual(r.body.job.options.persona_ids, []);
 });
 
 test('filter suara, gender, dan logat dipetakan ke persona engine yang cocok', async () => {
   const p = await approvedProduct('Madu Filter');
-  const r = await job(p.id, { options: { voice_id: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Jakarta Timur–Bekasi' } });
+  const r = await job(p.id, { options: { voice_id: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Betawi' } });
   assert.equal(r.status, 200);
   assert.deepEqual(r.body.job.options.persona_ids, ['jaktim_pria']);
   assert.equal(r.body.job.options.voice_id, 'id-ID-ArdiNeural');
   assert.equal(r.body.job.options.gender, 'pria');
-  assert.equal(r.body.job.options.accent, 'Jakarta Timur–Bekasi');
+  assert.equal(r.body.job.options.accent, 'Betawi');
 });
 
 test('job menyimpan pilihan angle, persona, preset, look, durasi, dan kecepatan suara', async () => {
   const p = await approvedProduct('Madu Pilihan');
-  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_id: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Jakarta Timur–Bekasi', voice_speed: 1.12, preset: 'brand-box', look: 'warm-honey', duration_seconds: 25 };
+  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_id: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Betawi', voice_speed: 1.1, preset: 'brand-box', look: 'warm-honey', duration_range: '30-45' };
   const r = await job(p.id, { options });
   assert.equal(r.status, 200);
   assert.deepEqual(r.body.job.options, options);
 });
 
+test('duration_seconds lama tetap diterima lalu dipetakan ke rentang durasi', async () => {
+  const p = await approvedProduct('Madu Durasi Lama');
+  const r = await job(p.id, { options: { voice_speed: 1.15, duration_seconds: 25 } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.job.options.duration_range, '15-30');
+});
+
 test('job menolak pilihan persona, preset, look, durasi, dan speed yang tidak didukung', async () => {
   const p = await approvedProduct('Madu Pilihan Invalid');
-  const valid = { persona_ids: ['jaktim_pria'], preset: 'brand-box', look: 'warm-honey', duration_seconds: 20, voice_speed: 1.12 };
+  const valid = { persona_ids: ['jaktim_pria'], preset: 'brand-box', look: 'warm-honey', duration_range: '15-30', voice_speed: 1.1 };
   for (const patch of [
     { persona_ids: ['not-a-persona'] }, { voice_id: 'invalid' }, { gender: 'other' }, { accent: 'unavailable' },
-    { gender: 'wanita', accent: 'Jakarta Timur–Bekasi' }, { preset: 'not-a-preset' }, { look: 'not-a-look' },
-    { duration_seconds: 80 }, { voice_speed: 9 },
+    { gender: 'wanita', accent: 'Batak' }, { preset: 'not-a-preset' }, { look: 'not-a-look' },
+    { duration_range: '90-120' }, { voice_speed: 9 },
   ]) assert.equal((await job(p.id, { options: { ...valid, ...patch } })).status, 400, JSON.stringify(patch));
 });
 
