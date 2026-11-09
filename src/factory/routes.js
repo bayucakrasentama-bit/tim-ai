@@ -340,4 +340,21 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     await db.run('UPDATE factory_jobs SET priority = ?, updated_at = ? WHERE id = ?', priority, now(), j.id);
     res.json({ job: await reloadJob(j.id) });
   });
+
+  // ---- Feedback per request ----
+  app.get('/api/factory/jobs/:id/feedback', scope, async (req, res) => {
+    const j = await getJob(req);
+    if (!j) return err(res, 404, 'Request nggak ketemu');
+    const rows = await db.all('SELECT * FROM factory_feedback WHERE job_id = ? ORDER BY id ASC', j.id);
+    res.json({ feedback: rows });
+  });
+  app.post('/api/factory/jobs/:id/feedback', scope, async (req, res) => {
+    const j = await getJob(req);
+    if (!j) return err(res, 404, 'Request nggak ketemu');
+    const message = String(req.body?.message || '').trim();
+    if (!message) return err(res, 400, 'Isi feedback dulu');
+    const t = now();
+    await db.run('INSERT INTO factory_feedback (job_id, brand_id, user, message, created_at) VALUES (?, ?, ?, ?, ?)', j.id, j.brand_id, req.user.username, message.slice(0, 2000), t);
+    res.json({ feedback: await db.all('SELECT * FROM factory_feedback WHERE job_id = ? ORDER BY id ASC', j.id) });
+  });
 }

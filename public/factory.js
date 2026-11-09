@@ -24,6 +24,51 @@ const fmtEta = (t) => (t ? new Date(t).toLocaleString('id-ID', { dateStyle: 'sho
 let products = [];
 let jobs = [];
 let agent = null;
+const bootParams = new URLSearchParams(location.search);
+let bootFeedbackOpened = false;
+
+// ---------- Feedback per request ----------
+function feedbackLink(id) { return `${location.origin}/factory?job=${id}&feedback=1`; }
+
+async function openFeedback(id) {
+  const j = jobs.find((x) => String(x.id) === String(id));
+  openModal(`<div class="fx-modal"><h3>Feedback — ${esc(j?.product_name || id)}</h3><div class="spinner"></div></div>`);
+  let list = [];
+  try { list = (await api(`/api/factory/jobs/${id}/feedback`)).feedback || []; } catch (ex) { toast(ex.message); }
+  const link = feedbackLink(id);
+  openModal(`<div class="fx-modal">
+    <h3>Feedback — ${esc(j?.product_name || id)}</h3>
+    <div class="hint">Link feedback request ini (bisa dibagikan):</div>
+    <div class="btn-row"><input id="fx-fb-link" readonly value="${esc(link)}" onclick="this.select()"><button class="ghost small" id="fx-fb-copy">Salin link</button></div>
+    ${j?.drive_url ? `<div class="hint">Drive tujuan final: <a href="${esc(j.drive_url)}" target="_blank" rel="noopener">${esc(j.drive_url)}</a></div>` : '<div class="hint">Drive tujuan final belum dibuat.</div>'}
+    <div class="fx-fb-list">${list.length ? list.map((f) => `<div class="fx-fb"><b>${esc(f.user || 'Anonim')}</b> <span class="hint">${fmtEta(f.created_at)}</span><div>${esc(f.message)}</div></div>`).join('') : '<div class="hint">Belum ada feedback.</div>'}</div>
+    <form id="fx-feedback-form">
+      <textarea id="fx-fb-msg" rows="3" placeholder="Tulis feedback untuk produksi request ini..." required></textarea>
+      <div class="btn-row"><button class="primary" type="submit">Kirim feedback</button></div>
+    </form>
+  </div>`);
+  $('#fx-fb-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(link); toast('Link feedback disalin'); } catch { toast('Salin manual dari kolom di atas'); }
+  });
+  $('#fx-feedback-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('#fx-fb-msg').value.trim();
+    if (!msg) return;
+    try {
+      await api(`/api/factory/jobs/${id}/feedback`, json('POST', { message: msg }));
+      toast('Feedback terkirim');
+      openFeedback(id);
+    } catch (ex) { toast(ex.message); }
+  });
+}
+
+function maybeOpenBootFeedback() {
+  if (bootFeedbackOpened) return;
+  const job = bootParams.get('job');
+  if (!job || !bootParams.get('feedback')) return;
+  bootFeedbackOpened = true;
+  openFeedback(job);
+}
 let optionCatalog = { personas: [], presets: [], looks: [], voice_speeds: [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2], durations: ['15-30', '30-45', '45-60'] };
 let timer = null;
 let formState = { product_id: '', target: 100, cta: 'kerkun', footage_url: '', angle: 'auto', voice_id: 'auto', gender: 'auto', age_range: 'auto', accent: 'auto', voice_speed: 1.0, preset: 'random', look: 'random', duration_range: '15-30' };
@@ -101,6 +146,15 @@ function updateEstimate() {
   if (el) el.textContent = t > 0 ? `Perkiraan durasi ${fmtDur(t * mid)} · ruang ${fmtSize(t * 18)}` : '';
 }
 
+function timeCell(j) {
+  const start = j.started_at || j.created_at;
+  const active = ['menyiapkan', 'produksi', 'dijeda'].includes(j.status);
+  let sub = '';
+  if (active) sub = `<br>▶ <b>berjalan ${fmtDur((Date.now() - new Date(start)) / 1000)}</b>`;
+  else if (j.finished_at && j.started_at) sub = `<br>✓ selesai dalam ${fmtDur((new Date(j.finished_at) - new Date(j.started_at)) / 1000)}`;
+  return `<td class="hint">diminta ${fmtEta(j.created_at)}${sub}</td>`;
+}
+
 function actionsFor(j) {
   const b = (a, label, cls = 'ghost small') => `<button class="${cls}" data-fx-act="${a}" data-id="${esc(j.id)}">${label}</button>`;
   const out = [];
@@ -109,6 +163,7 @@ function actionsFor(j) {
   if (['antre', 'menyiapkan', 'produksi', 'dijeda', 'menunggu_profil'].includes(j.status)) out.push(b('cancel', 'Batalkan'));
   if (j.status === 'gagal') out.push(b('retry', 'Coba lagi'));
   if (isAdmin() && ['antre', 'dijeda'].includes(j.status)) out.push(b('prio', '▲ Prioritas'));
+  out.push(b('feedback', '💬 Feedback'));
   return out.join(' ');
 }
 
@@ -122,14 +177,15 @@ function jobsCard() {
       <td><b>${esc(j.product_name || j.product_id)}</b>${j.queue_position ? `<div class="hint">Antrean #${esc(j.queue_position)}</div>` : ''}</td>
       <td>${num(target)}</td><td>${esc(CTA[j.cta] || j.cta)}</td>
       <td><span class="pill ${cls}">${esc(label)}</span></td>
+      ${timeCell(j)}
       <td class="fx-prog"><div class="fx-bar"><i style="width:${pct}%"></i></div><span class="hint">${num(j.done)}/${num(target)}${j.failed ? ` · gagal ${num(j.failed)}` : ''}</span></td>
       <td>${esc(fmtEta(j.eta_at))}</td>
-      <td>${j.drive_url ? (String(j.drive_url).startsWith('https://') ? `<a href="${esc(j.drive_url)}" target="_blank" rel="noopener">Drive</a>` : esc(j.drive_url)) : '–'}</td>
+      <td>${j.drive_url ? (String(j.drive_url).startsWith('https://') ? `<a href="${esc(j.drive_url)}" target="_blank" rel="noopener">Drive tujuan</a>` : esc(j.drive_url)) : '–'}</td>
       <td class="fx-msg">${esc(j.message || '')}</td>
       <td class="fx-acts">${actionsFor(j)}</td></tr>`;
   }).join('');
   return `<div class="card"><div class="label">Request produksi</div><div class="table-wrap"><table class="data">
-    <thead><tr><th>Produk</th><th>Target</th><th>CTA</th><th>Status</th><th>Progres</th><th>ETA</th><th>Drive</th><th>Pesan</th><th></th></tr></thead>
+    <thead><tr><th>Produk</th><th>Target</th><th>CTA</th><th>Status</th><th>Waktu</th><th>Progres</th><th>ETA</th><th>Drive</th><th>Pesan</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
 }
 
@@ -161,7 +217,7 @@ S.viewHooks.factory = async () => {
   const v = viewEl();
   if (!v) return;
   if (!v.innerHTML.trim()) v.innerHTML = '<div class="spinner"></div>';
-  try { await loadAll(); draw(); startTimer(); } catch (ex) { toast(ex.message); }
+  try { await loadAll(); draw(); startTimer(); maybeOpenBootFeedback(); } catch (ex) { toast(ex.message); }
 };
 
 function readForm() {
@@ -203,6 +259,7 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   const { fxAct: act, id } = btn.dataset;
   if (act === 'cancel' && !confirm('Batalkan request ini?')) return;
+  if (act === 'feedback') { btn.disabled = false; openFeedback(id); return; }
   btn.disabled = true;
   try {
     if (act === 'prio') {

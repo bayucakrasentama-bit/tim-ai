@@ -413,3 +413,20 @@ test('retry mengosongkan finished_at dan eta_at', async () => {
   assert.equal(r.body.job.finished_at, null);
   assert.equal(r.body.job.eta_at, null);
 });
+
+test('feedback per request: simpan + list', async () => {
+  const p = await approvedProduct('Madu Feedback');
+  const j = (await job(p.id)).body.job;
+  const empty = await t.call('GET', `/api/factory/jobs/${j.id}/feedback`);
+  assert.equal(empty.status, 200);
+  assert.deepEqual(empty.body.feedback, []);
+  const kosong = await t.call('POST', `/api/factory/jobs/${j.id}/feedback`, { message: '  ' });
+  assert.equal(kosong.status, 400);
+  const post = await t.call('POST', `/api/factory/jobs/${j.id}/feedback`, { message: 'video 3 kurang jelas teksnya' });
+  assert.equal(post.status, 200);
+  assert.equal(post.body.feedback.length, 1);
+  assert.equal(post.body.feedback[0].message, 'video 3 kurang jelas teksnya');
+  assert.ok(post.body.feedback[0].created_at);
+  const again = await t.call('POST', `/api/factory/jobs/${j.id}/feedback`, { message: 'durasi kepanjangan' });
+  assert.equal(again.body.feedback.length, 2);
+});
