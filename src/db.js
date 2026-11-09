@@ -545,7 +545,7 @@ created_at TEXT NOT NULL
     id ${idType},
     job_id INTEGER NOT NULL,
     brand_id INTEGER NOT NULL,
-    user TEXT NOT NULL DEFAULT '',
+    username TEXT NOT NULL DEFAULT '',
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`,

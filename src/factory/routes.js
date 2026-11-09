@@ -354,7 +354,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const message = String(req.body?.message || '').trim();
     if (!message) return err(res, 400, 'Isi feedback dulu');
     const t = now();
-    await db.run('INSERT INTO factory_feedback (job_id, brand_id, user, message, created_at) VALUES (?, ?, ?, ?, ?)', j.id, j.brand_id, req.user.username, message.slice(0, 2000), t);
+    await db.run('INSERT INTO factory_feedback (job_id, brand_id, username, message, created_at) VALUES (?, ?, ?, ?, ?)', j.id, j.brand_id, req.user.username, message.slice(0, 2000), t);
     res.json({ feedback: await db.all('SELECT * FROM factory_feedback WHERE job_id = ? ORDER BY id ASC', j.id) });
   });
 }

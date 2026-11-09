@@ -41,7 +41,7 @@ async function openFeedback(id) {
     <div class="hint">Link feedback request ini (bisa dibagikan):</div>
     <div class="btn-row"><input id="fx-fb-link" readonly value="${esc(link)}" onclick="this.select()"><button class="ghost small" id="fx-fb-copy">Salin link</button></div>
     ${j?.drive_url ? `<div class="hint">Drive tujuan final: <a href="${esc(j.drive_url)}" target="_blank" rel="noopener">${esc(j.drive_url)}</a></div>` : '<div class="hint">Drive tujuan final belum dibuat.</div>'}
-    <div class="fx-fb-list">${list.length ? list.map((f) => `<div class="fx-fb"><b>${esc(f.user || 'Anonim')}</b> <span class="hint">${fmtEta(f.created_at)}</span><div>${esc(f.message)}</div></div>`).join('') : '<div class="hint">Belum ada feedback.</div>'}</div>
+    <div class="fx-fb-list">${list.length ? list.map((f) => `<div class="fx-fb"><b>${esc(f.username || 'Anonim')}</b> <span class="hint">${fmtEta(f.created_at)}</span><div>${esc(f.message)}</div></div>`).join('') : '<div class="hint">Belum ada feedback.</div>'}</div>
     <form id="fx-feedback-form">
       <textarea id="fx-fb-msg" rows="3" placeholder="Tulis feedback untuk produksi request ini..." required></textarea>
       <div class="btn-row"><button class="primary" type="submit">Kirim feedback</button></div>
