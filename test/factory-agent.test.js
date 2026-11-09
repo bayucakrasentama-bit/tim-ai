@@ -53,7 +53,7 @@ test('claim: prioritas, menyiapkan, profil objek, resume, progress monoton, paus
   assert.deepEqual((await agent('GET', '/peek')).body, { waiting: true });
   const c1 = (await agent('POST', '/claim', {})).body.job;
   assert.equal(c1.id, b.id);
-  assert.deepEqual(c1.options, { ...options, voice_id: 'auto', gender: 'auto', accent: 'auto' });
+  assert.deepEqual(c1.options, { ...options, voice_id: 'auto', gender: 'auto', accent: 'auto', age_range: 'auto' });
   assert.equal(typeof c1.product.profile, 'object');
   assert.equal(c1.product.product_image, '/uploads/a.png');
   assert.equal(c1.product.label_image, '/uploads/b.png');

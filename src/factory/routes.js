@@ -6,7 +6,7 @@ import { getSetting, now } from '../db.js';
 import { askClaude } from '../ai.js';
 import { canManage } from '../auth.js';
 import { slugify, parseFolderId, validateProfile, PROFILE_FIELDS, PALETTE_KEYS, normalizePalette, defaultRules } from './profile.js';
-import { PERSONAS, PRESETS, LOOKS, SPEEDS, DURATIONS, DEFAULT_OPTIONS, normalizeOptions } from './options.js';
+import { VOICES, AGES, PERSONAS, PRESETS, LOOKS, SPEEDS, DURATIONS, DEFAULT_OPTIONS, normalizeOptions } from './options.js';
 
 let ask = askClaude;
 // Tes mengganti pemanggil AI; null mengembalikan yang asli.
@@ -268,7 +268,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
   };
 
   app.get('/api/factory/options', scope, async (_req, res) => res.json({
-    personas: PERSONAS, presets: PRESETS, looks: LOOKS, voice_speeds: SPEEDS, durations: DURATIONS,
+    voices: VOICES, ages: AGES, personas: PERSONAS, presets: PRESETS, looks: LOOKS, voice_speeds: SPEEDS, durations: DURATIONS,
   }));
 
   // Antrean FIFO lintas brand: prioritas tertinggi dulu, lalu id terkecil.

@@ -114,7 +114,7 @@ test('filter suara, gender, dan logat dipetakan ke persona engine yang cocok', a
 
 test('job menyimpan pilihan angle, persona, preset, look, durasi, dan kecepatan suara', async () => {
   const p = await approvedProduct('Madu Pilihan');
-  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_id: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Betawi', voice_speed: 1.1, preset: 'brand-box', look: 'warm-honey', duration_range: '30-45' };
+  const options = { angle: fixture().story.daily_pain_points[0], persona_ids: ['jaktim_pria'], voice_id: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Betawi', age_range: 'auto', voice_speed: 1.1, preset: 'brand-box', look: 'warm-honey', duration_range: '30-45' };
   const r = await job(p.id, { options });
   assert.equal(r.status, 200);
   assert.deepEqual(r.body.job.options, options);

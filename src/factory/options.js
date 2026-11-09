@@ -1,3 +1,20 @@
+export const VOICES = [
+  { id: 'id-ID-ArdiNeural', name: 'Ardi', gender: 'pria', lang: 'Indonesia' },
+  { id: 'id-ID-GadisNeural', name: 'Gadis', gender: 'wanita', lang: 'Indonesia' },
+  { id: 'jv-ID-DimasNeural', name: 'Dimas', gender: 'pria', lang: 'Jawa' },
+  { id: 'jv-ID-SitiNeural', name: 'Siti', gender: 'wanita', lang: 'Jawa' },
+  { id: 'su-ID-JajangNeural', name: 'Jajang', gender: 'pria', lang: 'Sunda' },
+  { id: 'su-ID-TutiNeural', name: 'Tuti', gender: 'wanita', lang: 'Sunda' },
+  { id: 'ms-MY-OsmanNeural', name: 'Osman', gender: 'pria', lang: 'Melayu' },
+  { id: 'ms-MY-YasminNeural', name: 'Yasmin', gender: 'wanita', lang: 'Melayu' },
+  { id: 'en-US-AndrewMultilingualNeural', name: 'Andrew', gender: 'pria', lang: 'multibahasa' },
+  { id: 'en-US-AvaMultilingualNeural', name: 'Ava', gender: 'wanita', lang: 'multibahasa' },
+  { id: 'en-US-BrianMultilingualNeural', name: 'Brian', gender: 'pria', lang: 'multibahasa' },
+  { id: 'en-US-EmmaMultilingualNeural', name: 'Emma', gender: 'wanita', lang: 'multibahasa' },
+];
+export const VOICE_IDS = new Set(VOICES.map((v) => v.id));
+export const VOICE_GENDER = new Map(VOICES.map((v) => [v.id, v.gender]));
+export const AGES = ['anak-anak', 'dewasa', 'orang-tua'];
 export const PERSONAS = [
   { id: 'jaktim_pria', label: 'Ardi — Jaktim/Bekasi', voice: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Betawi' },
   { id: 'jaksel_wanita', label: 'Gadis — Jaksel', voice: 'id-ID-GadisNeural', gender: 'wanita', accent: 'Betawi' },
@@ -16,14 +33,13 @@ export const PERSONAS = [
   { id: 'bali_pria', label: 'Wayan — Bali', voice: 'id-ID-ArdiNeural', gender: 'pria', accent: 'Bali' },
 ];
 export const PERSONA_IDS = new Set(PERSONAS.map((p) => p.id));
-export const VOICE_IDS = new Set(PERSONAS.map((p) => p.voice));
 export const ACCENTS = new Set(PERSONAS.map((p) => p.accent));
 export const PRESETS = ['madu-pop', 'brand-box', 'bold-bebas', 'cream-plate', 'highlight-box'];
 export const LOOKS = ['warm-honey', 'teal-orange', 'clean-bright', 'moody', 'natural', 'film'];
 export const SPEEDS = [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2];
 // rentang durasi video akhir (detik); pipeline memilih durasi pasti di dalam rentang
 export const DURATIONS = ['15-30', '30-45', '45-60'];
-export const DEFAULT_OPTIONS = { angle: 'auto', persona_ids: [], voice_id: 'auto', gender: 'auto', accent: 'auto', voice_speed: 1.0, preset: 'random', look: 'random', duration_range: '15-30' };
+export const DEFAULT_OPTIONS = { angle: 'auto', persona_ids: [], voice_id: 'auto', gender: 'auto', accent: 'auto', age_range: 'auto', voice_speed: 1.0, preset: 'random', look: 'random', duration_range: '15-30' };
 
 export function normalizeOptions(input, profile) {
   const o = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
@@ -35,12 +51,18 @@ export function normalizeOptions(input, profile) {
   const voiceId = o.voice_id ?? 'auto';
   const gender = o.gender ?? 'auto';
   const accent = o.accent ?? 'auto';
+  const ageRange = o.age_range ?? 'auto';
   if (voiceId !== 'auto' && !VOICE_IDS.has(voiceId)) return { error: 'Pilihan suara tidak didukung' };
   if (!['auto', 'pria', 'wanita'].includes(gender)) return { error: 'Gender suara tidak didukung' };
+  if (ageRange !== 'auto' && !AGES.includes(ageRange)) return { error: 'Rentang usia tidak didukung' };
+  const voice = VOICES.find((v) => v.id === voiceId);
+  if (voice && gender !== 'auto' && voice.gender !== gender) return { error: 'Gender tidak cocok dengan suara yang dipilih' };
   if (accent !== 'auto' && !ACCENTS.has(accent)) return { error: 'Logat tidak didukung' };
-  const hasPersonaFilter = voiceId !== 'auto' || gender !== 'auto' || accent !== 'auto';
-  const filteredIds = PERSONAS.filter((p) => (voiceId === 'auto' || p.voice === voiceId)
-    && (gender === 'auto' || p.gender === gender) && (accent === 'auto' || p.accent === accent)).map((p) => p.id);
+  // suara menentukan gender persona (POV naskah) saat gender tidak dipilih eksplisit
+  const effGender = gender !== 'auto' ? gender : (voice ? voice.gender : 'auto');
+  const hasPersonaFilter = effGender !== 'auto' || accent !== 'auto';
+  const filteredIds = PERSONAS.filter((p) => (effGender === 'auto' || p.gender === effGender)
+    && (accent === 'auto' || p.accent === accent)).map((p) => p.id);
   if (hasPersonaFilter && !filteredIds.length) return { error: 'Kombinasi suara, gender, dan logat tidak tersedia' };
   const personaIds = hasPersonaFilter ? filteredIds.filter((id) => !requestedIds.length || requestedIds.includes(id)) : requestedIds;
   if (hasPersonaFilter && !personaIds.length) return { error: 'Filter persona tidak cocok dengan pilihan persona' };
@@ -58,5 +80,5 @@ export function normalizeOptions(input, profile) {
   }
   durationRange = durationRange ?? DEFAULT_OPTIONS.duration_range;
   if (!DURATIONS.includes(durationRange)) return { error: 'Durasi harus 15-30, 30-45, atau 45-60 detik' };
-  return { value: { angle: o.angle ?? 'auto', persona_ids: personaIds, voice_id: voiceId, gender, accent, voice_speed: voiceSpeed, preset, look, duration_range: durationRange } };
+  return { value: { angle: o.angle ?? 'auto', persona_ids: personaIds, voice_id: voiceId, gender, accent, age_range: ageRange, voice_speed: voiceSpeed, preset, look, duration_range: durationRange } };
 }

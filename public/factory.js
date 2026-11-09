@@ -26,7 +26,7 @@ let jobs = [];
 let agent = null;
 let optionCatalog = { personas: [], presets: [], looks: [], voice_speeds: [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2], durations: ['15-30', '30-45', '45-60'] };
 let timer = null;
-let formState = { product_id: '', target: 100, cta: 'kerkun', footage_url: '', angle: 'auto', voice_id: 'auto', gender: 'auto', accent: 'auto', voice_speed: 1.0, preset: 'random', look: 'random', duration_range: '15-30' };
+let formState = { product_id: '', target: 100, cta: 'kerkun', footage_url: '', angle: 'auto', voice_id: 'auto', gender: 'auto', age_range: 'auto', accent: 'auto', voice_speed: 1.0, preset: 'random', look: 'random', duration_range: '15-30' };
 
 async function loadAll() {
   const [p, j, o] = await Promise.all([api('/api/factory/products'), api('/api/factory/jobs'), api('/api/factory/options')]);
@@ -55,7 +55,7 @@ function formCard() {
   const storyAngles = product?.profile?.story?.daily_pain_points;
   const angles = Array.isArray(storyAngles) && storyAngles.length ? storyAngles : product?.profile?.angles || [];
   const personas = optionCatalog.personas || [];
-  const voices = [...new Map(personas.map((p) => [p.voice, p])).values()];
+  const voices = optionCatalog.voices || [];
   const accents = [...new Set(personas.map((p) => p.accent))];
   const select = (id, label, values, selected, labeler = (x) => x) => `<div><label class="label" for="${id}">${label}</label><select id="${id}" name="${id}">${values.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === String(selected) ? 'selected' : ''}>${esc(l ?? labeler(v))}</option>`).join('')}</select></div>`;
   return `<div class="card"><div class="label">Request produksi baru</div>
@@ -74,11 +74,12 @@ function formCard() {
         ${select('fx-duration', 'Durasi per video', (optionCatalog.durations || ['15-30','30-45','45-60']).map((r) => [r, `${String(r).replace('-', '–')} detik`]), f.duration_range)}
       </div>
       <div class="fx-grid">
-        ${select('fx-voice', 'Suara', [['auto', 'Semua suara'], ...voices.map((p) => [p.voice, `${p.label} · ${p.voice}`])], f.voice_id)}
+        ${select('fx-voice', 'Suara', [['auto', 'Semua suara'], ...voices.map((v) => [v.id, `${v.name} — ${v.gender}, ${v.lang}`])], f.voice_id)}
         ${select('fx-gender', 'Gender suara', [['auto', 'Semua gender'], ['pria', 'Pria'], ['wanita', 'Wanita']], f.gender)}
+        ${select('fx-age', 'Rentang usia', [['auto', 'Semua usia'], ...(optionCatalog.ages || ['anak-anak', 'dewasa', 'orang-tua']).map((a) => [a, a])], f.age_range)}
         ${select('fx-accent', 'Logat suku / persona', [['auto', 'Semua logat'], ...accents.map((a) => [a, a])], f.accent)}
       </div>
-      <div class="hint">Filter suara, gender, dan logat digabungkan; hanya persona terkonfigurasi yang cocok akan digunakan.</div>
+      <div class="hint">Filter suara, gender, usia, dan logat digabungkan; hanya persona terkonfigurasi yang cocok akan digunakan.</div>
       <div class="fx-grid">
         ${select('fx-speed', 'Kecepatan suara', (optionCatalog.voice_speeds || [0.8,0.85,0.9,0.95,1.0,1.05,1.1,1.15,1.2]).map((n) => [n, `${n.toFixed(2).replace('.', ',')}×`]), f.voice_speed)}
         ${select('fx-preset', 'Preset tampilan / caption', [['random','Acak'], ...(optionCatalog.presets || []).map((x) => [x,x])], f.preset)}
@@ -170,7 +171,7 @@ function readForm() {
     product_id: f.product_id.value === '__new' ? '' : f.product_id.value, target: f.target.value,
     cta: f.cta.value || 'kerkun', footage_url: f.footage_url.value,
     angle: $('#fx-angle')?.value || 'auto',
-    voice_id: $('#fx-voice')?.value || 'auto', gender: $('#fx-gender')?.value || 'auto', accent: $('#fx-accent')?.value || 'auto',
+    voice_id: $('#fx-voice')?.value || 'auto', gender: $('#fx-gender')?.value || 'auto', age_range: $('#fx-age')?.value || 'auto', accent: $('#fx-accent')?.value || 'auto',
     voice_speed: Number($('#fx-speed')?.value || 1), preset: $('#fx-preset')?.value || 'random',
     look: $('#fx-look')?.value || 'random', duration_range: $('#fx-duration')?.value || '15-30',
   };
@@ -226,7 +227,7 @@ document.addEventListener('submit', async (e) => {
   try {
     await api('/api/factory/jobs', json('POST', {
       product_id: f.product_id, target, cta: f.cta, footage_url: f.footage_url.trim(),
-      options: { angle: f.angle, voice_id: f.voice_id, gender: f.gender, accent: f.accent, voice_speed: f.voice_speed, preset: f.preset, look: f.look, duration_range: f.duration_range },
+      options: { angle: f.angle, voice_id: f.voice_id, gender: f.gender, age_range: f.age_range, accent: f.accent, voice_speed: f.voice_speed, preset: f.preset, look: f.look, duration_range: f.duration_range },
     }));
     toast('Request masuk antrean');
     await loadAll(); redrawLive();
