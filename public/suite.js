@@ -135,39 +135,7 @@ function compareBars(groups, empty = 'Belum ada data.') {
 }
 
 // ======================================================================
-// DASHBOARD
-// ======================================================================
-async function renderDashboard() {
-  const days = Number($('#dash-range').value);
-  $('#dash-title').textContent = brand() ? `Dashboard · ${brand().name}` : 'Dashboard';
-  const [s, content, upcoming] = await Promise.all([
-    api(`/api/analytics/summary?from=${since(days)}`),
-    api('/api/content'),
-    api('/api/posts?status=scheduled'),
-  ]);
-  const t = s.totals;
-  $('#dash-kpis').innerHTML = kpis([
-    { label: 'Views', value: compact(t.views), sub: `${t.contents} konten` },
-    { label: 'Engagement rate', value: pct(t.engagement_rate), sub: `${compact(t.engagement)} interaksi` },
-    { label: 'Profile visit', value: compact(t.profile_visits) },
-    { label: 'Leads', value: num(t.leads) },
-    { label: 'Sales', value: num(t.sales) },
-    { label: 'Omzet', value: rupiahShort(t.revenue), sub: rupiah(t.revenue) },
-  ]);
-  $('#dash-funnel').innerHTML = funnel(s.funnel);
-  const counts = Object.fromEntries(COLUMNS.map((c) => [c.id, 0]));
-  for (const c of content) counts[c.status]++;
-  $('#dash-pipeline').innerHTML = `<div class="pipeline">${COLUMNS.map((c) => `<button class="pipe" data-goto="planner"><b>${counts[c.id]}</b>${c.label}</button>`).join('')}</div>`;
-  const next = upcoming.reverse().slice(0, 5);
-  $('#dash-upcoming').innerHTML = next.length
-    ? next.map((p) => `<div class="mini-item" data-post="${p.id}"><span>${esc(S.fmtDate(p.scheduled_at))}</span><span class="grow">${esc((p.caption || '(tanpa caption)').slice(0, 60))}</span></div>`).join('')
-    : '<div class="empty small">Belum ada post terjadwal.</div>';
-  $('#dash-timeline').innerHTML = timeline(s.timeline, days);
-  $('#dash-sync').textContent = s.lastSync ? `Data API terakhir ditarik ${S.fmtDate(s.lastSync)}` : '';
-}
-$('#dash-range').addEventListener('change', renderDashboard);
-S.viewHooks.dashboard = () => renderDashboard().catch((e) => toast(e.message));
-
+// DASHBOARD → lihat bento.js (dashboard eksekutif). Jangan tambah render di sini.
 // ======================================================================
 // PLANNER
 // ======================================================================
@@ -772,7 +740,7 @@ function aiSettingsHtml() {
   const g = aiStatus.gemini;
   const manage = ['owner', 'admin'].includes(state.me?.user?.role);
   const head = aiStatus.routed
-    ? `<span class="status success">AI aktif</span> <b>${esc(aiStatus.routed.provider)}</b> · <code>${esc(aiStatus.routed.model)}</code> <span class="hint">· model default dari <button class="link" data-goto="aikeys">AI & API Keys</button></span>`
+    ? `<span class="status success">AI aktif</span> <b>${esc(aiStatus.routed.provider)}</b> · <code>${esc(aiStatus.routed.model)}</code> <span class="hint">· model default dari tab <button class="link" data-goto="aikeys">Model & API Keys</button></span>`
     : aiStatus.enabled
     ? `<span class="status success">AI aktif</span> <b>${aiStatus.provider === 'gemini' ? 'Google Gemini' : 'Claude'}</b> · <code>${esc(aiStatus.model)}</code>${aiStatus.provider === 'gemini' && g.key_source ? ` <span class="hint">· pakai ${AI_SRC[g.key_source]}</span>` : ''}`
     : '<span class="status failed">AI belum aktif</span> Tempel API key Gemini kamu di bawah.';

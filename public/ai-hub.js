@@ -68,14 +68,18 @@ function priceOf(p) {
 }
 
 // ---------------- Halaman AI & API Keys ----------------
-async function drawKeys() {
-  const view = $('#view-aikeys');
-  view.innerHTML = '<h1>AI & API Keys</h1><div class="spinner"></div>';
+// Digabung (2026-11): halaman "AI & API Keys" kini jadi tab "Model & API Keys" di AI Studio.
+// drawKeys(root) merender ke root (tab panel); fallback ke #view-aikeys bila tanpa argumen.
+async function drawKeys(root) {
+  const view = root || $('#view-aikeys');
+  if (!view) return;
+  if (!view.dataset.bound) { view.dataset.bound = '1'; bindKeysPage(view); }
+  view.innerHTML = '<h1>Model & API Keys</h1><div class="spinner"></div>';
   await loadHub(true);
   const P = hub.providers;
   const def = hub.default;
   const canEdit = manage();
-  view.innerHTML = `<div class="page-head"><div><h1>AI & API Keys</h1>
+  view.innerHTML = `<div class="page-head"><div><h1>Model & API Keys</h1>
     <p class="hint">Bring Your Own Key: pakai akun AI milik bisnis sendiri. Key disimpan di server TIM-AI dan tidak pernah ditampilkan lagi (hanya 4 karakter terakhir). Daftar model ditarik langsung dari provider, jadi model terbaru otomatis muncul.</p></div></div>
   <div class="card ai-default">
     <div class="label">Model default untuk semua fitur AI</div>
@@ -104,14 +108,13 @@ async function drawKeys() {
         await api('/api/ai/default', json('PUT', { ...v, temperature: $('#def-temp').value }));
         state.config.ai = true;
         toast('Model default tersimpan');
-        drawKeys();
+        drawKeys(view);
       } catch (ex) { toast(ex.message); }
     });
-    $('#def-clear')?.addEventListener('click', async () => { await api('/api/ai/default', json('PUT', {})); toast('Kembali ke pengaturan lama'); drawKeys(); });
+    $('#def-clear')?.addEventListener('click', async () => { await api('/api/ai/default', json('PUT', {})); toast('Kembali ke pengaturan lama'); drawKeys(view); });
   }
 }
-function bindKeysPage() {
-  const view = $('#view-aikeys');
+function bindKeysPage(view) {
   view.addEventListener('submit', async (e) => {
     const id = e.target.dataset.keyForm;
     if (!id) return;
@@ -121,12 +124,12 @@ function bindKeysPage() {
       await api(`/api/ai/providers/${id}`, json('PUT', v));
       delete models[`${id}|text`];
       toast('Tersimpan');
-      drawKeys();
+      drawKeys(view);
     } catch (ex) { toast(ex.message); }
   });
   view.addEventListener('click', async (e) => {
     const d = e.target.dataset;
-    if (d.keyDel && confirm('Hapus API key ini?')) { await api(`/api/ai/providers/${d.keyDel}`, { method: 'DELETE' }); toast('Dihapus'); drawKeys(); }
+    if (d.keyDel && confirm('Hapus API key ini?')) { await api(`/api/ai/providers/${d.keyDel}`, { method: 'DELETE' }); toast('Dihapus'); drawKeys(view); }
     if (d.keyTest) {
       const out = $('[data-key-out]', e.target.closest('form'));
       out.textContent = 'mengetes…';
@@ -141,10 +144,10 @@ function bindKeysPage() {
 }
 
 // ---------------- AI Studio: tab baru ----------------
-const NEW_TABS = { playground: 'Playground', arena: 'Arena (bandingkan model)', image: 'Gambar', video: 'Video', voice: 'Suara' };
+const NEW_TABS = { playground: 'Playground', arena: 'Arena (bandingkan model)', image: 'Gambar', video: 'Video', voice: 'Suara', settings: 'Model & API Keys' };
 let presets = [];
 async function loadPresets() { presets = await api('/api/ai/presets').catch(() => []); return presets; }
-const noKey = (cap) => `<div class="check bad small-note">Belum ada provider ${cap} yang aktif. Isi API key di <button class="link" data-goto="aikeys">Pengaturan → AI & API Keys</button>.</div>`;
+const noKey = (cap) => `<div class="check bad small-note">Belum ada provider ${cap} yang aktif. Isi API key di <button class="link" data-goto="aikeys">Model & API Keys</button>.</div>`;
 const estTokens = (s) => Math.ceil(String(s || '').length / 4);
 
 function paramHtml() {
@@ -272,7 +275,7 @@ async function tabMedia(kind, panel, output) {
   panel.addEventListener('change', syncGemini);
   // Prompt Builder Studio mengisi #md-prompt lewat kode (tanpa event input): sinkron lagi tepat sebelum klik.
   panel.addEventListener('pointerdown', syncGemini, true);
-  if (!own) { output.innerHTML = '<p class="hint">Mau generate langsung di TIM-AI juga? Isi key fal.ai / Replicate di <button class="link" data-goto="aikeys">Pengaturan → AI & API Keys</button>.</p>'; return; }
+  if (!own) { output.innerHTML = '<p class="hint">Mau generate langsung di TIM-AI juga? Isi key fal.ai / Replicate di <button class="link" data-goto="aikeys">Model & API Keys</button>.</p>'; return; }
   await bindPicker($('.mp', panel));
   const drawGallery = async () => {
     const jobs = (await api('/api/ai/jobs')).filter((j) => j.kind === kind);
@@ -335,12 +338,16 @@ async function tabVoice(panel, output) {
   });
 }
 
-const TAB_FN = { playground: tabPlayground, arena: tabArena, image: (p, o) => tabMedia('image', p, o), video: (p, o) => tabMedia('video', p, o), voice: tabVoice };
+function tabSettings(panel, output) {
+  output.innerHTML = '';
+  return drawKeys(panel).catch((ex) => { panel.innerHTML = `<div class="check bad">${esc(ex.message)}</div>`; });
+}
+const TAB_FN = { playground: tabPlayground, arena: tabArena, image: (p, o) => tabMedia('image', p, o), video: (p, o) => tabMedia('video', p, o), voice: tabVoice, settings: tabSettings };
 
 function ensureAiTabs() {
   const tabs = $('#ai-tabs');
   if (!tabs || tabs.querySelector('[data-hub]')) return;
-  tabs.insertAdjacentHTML('beforeend', Object.entries(NEW_TABS).map(([k, l]) => `<button data-hub="${k}">${l}</button>`).join(''));
+  tabs.insertAdjacentHTML('beforeend', Object.entries(NEW_TABS).filter(([k]) => k !== 'settings' || manage()).map(([k, l]) => `<button data-hub="${k}">${l}</button>`).join(''));
   tabs.addEventListener('click', async (e) => {
     const k = e.target.dataset.hub;
     if (!k) return;
@@ -370,8 +377,17 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-bindKeysPage();
-S.viewHooks.aikeys = () => drawKeys().catch((ex) => toast(ex.message));
+// Alias lama: /aikeys & data-goto="aikeys" -> buka AI Studio, tab "Model & API Keys".
+S.viewHooks.aikeys = () => {
+  S.show('ai');
+  const openSettings = () => {
+    const btn = document.querySelector('#ai-tabs [data-hub="settings"]');
+    if (!btn) { toast('Model & API Key bisa diatur owner/admin di AI Studio'); return; }
+    if (!btn.classList.contains('active')) btn.click();
+  };
+  requestAnimationFrame(openSettings);
+  setTimeout(openSettings, 450); // kalah race dengan render async suite → klik ulang bila perlu
+};
 const prevAi = S.viewHooks.ai;
 S.viewHooks.ai = () => { ensureAiTabs(); prevAi?.(); };
 window.timHub = { loadHub, pickerHtml, bindPicker, pickerValue };

@@ -22,8 +22,8 @@ const COPY = {
 };
 const ui = { kol: { tab: 'summary', days: 30, only: '' }, affiliate: { tab: 'summary', days: 30, only: '' } };
 const TABS = {
-  kol: [['summary', 'Ringkasan & Master BCS'], ['roster', 'Pipeline KOL'], ['campaigns', 'Campaign'], ['schedule', 'Jadwal'], ['samples', 'Sampel & Resi'], ['content', 'Analisa Konten'], ['research', 'Riset Kreator'], ['posts', 'Input hasil']],
-  affiliate: [['summary', 'Ringkasan & Master BCS'], ['roster', 'Kreator'], ['research', 'Riset & Banding Kreator'], ['samples', 'Sampel Massal'], ['brief', 'AI Brief & Link'], ['products', 'Produk'], ['videos', 'Video'], ['live', 'Livestream'], ['posts', 'Input hasil']],
+  kol: [['summary', 'Ringkasan'], ['roster', 'Pipeline KOL'], ['campaigns', 'Campaign'], ['schedule', 'Jadwal'], ['samples', 'Sampel & Resi'], ['content', 'Analisa Konten'], ['research', 'Riset Kreator'], ['posts', 'Input hasil']],
+  affiliate: [['summary', 'Ringkasan'], ['roster', 'Kreator'], ['research', 'Riset & Banding Kreator'], ['samples', 'Sampel Massal'], ['brief', 'AI Brief & Link'], ['products', 'Produk'], ['videos', 'Video'], ['live', 'Livestream'], ['posts', 'Input hasil']],
 };
 const cache = {};
 
@@ -88,7 +88,7 @@ async function draw(team) {
     const q = `from=${encodeURIComponent(since(u.days))}${u.only ? `&only=${u.only}` : ''}`;
     const r = await api(`/api/reports/team/${team}?${q}`);
     if (stale()) return;
-    body.innerHTML = `<div class="row-between"><span></span><a class="btn small" href="/api/reports/team/${team}/export.csv?brand=${state.brandId}&${q}">Download CSV</a></div>${reportHtml(r)}`;
+    body.innerHTML = `<div class="row-between"><button class="link" data-goto="reports">Master BCS semua tim →</button><a class="btn small" href="/api/reports/team/${team}/export.csv?brand=${state.brandId}&${q}">Download CSV</a></div>${reportHtml(r)}`;
     window.timAi?.mount(body, team, { days: u.days });
   } else if (u.tab === 'roster') {
     const list = partners.filter((p) => !u.only || String(p.brand_id) === u.only);

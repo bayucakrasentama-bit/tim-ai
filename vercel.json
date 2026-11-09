@@ -18,6 +18,10 @@
     {
       "source": "/p/(.*)",
       "destination": "/api"
+    },
+    {
+      "source": "/:path((?!api/|lp/|p/).*)",
+      "destination": "/index.html"
     }
   ],
   "functions": {

@@ -75,7 +75,7 @@ function shell(team) {
     <select data-ads-days aria-label="Periode">${[[7, '7 hari'], [30, '30 hari'], [90, '90 hari'], [365, '1 tahun']].map(([v, l]) => `<option value="${v}" ${v === u.days ? 'selected' : ''}>${l}</option>`).join('')}</select>
     ${liveOnly ? '' : '<button class="ghost" data-ads-import>Impor CSV</button><button class="ghost" data-ads-manual>+ Input manual</button><button class="primary" data-ads-add>+ Akun iklan</button>'}
   </div></div>
-  <div class="tabs" data-ads-tabs>${(liveOnly ? [['live', 'Live Command Center']] : team === 'adv' ? [['summary', 'Ringkasan & Master BCS'], ['testing', 'Kanban Testing Iklan'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'ROAS Gabungan'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']] : [['summary', 'Ringkasan & Master BCS'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'Kesehatan Toko'], ['campaign', 'Kalender Campaign'], ['listing', 'AI Listing & SEO'], ['audit', 'Audit Toko'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']]).map(([k, l]) => `<button data-ads-tab="${k}" ${liveOnly ? 'data-x-tab="live"' : ''} class="${k === u.tab ? 'active' : ''}">${l}</button>`).join('')}</div>
+  <div class="tabs" data-ads-tabs>${(liveOnly ? [['live', 'Live Command Center']] : team === 'adv' ? [['summary', 'Ringkasan'], ['testing', 'Kanban Testing Iklan'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'ROAS Gabungan'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']] : [['summary', 'Ringkasan'], ['profit', 'Kalkulator BEP ROAS'], ['health', 'Kesehatan Toko'], ['campaign', 'Kalender Campaign'], ['listing', 'AI Listing & SEO'], ['audit', 'Audit Toko'], ['strategy', 'Bank Strategi'], ['accounts', 'Akun iklan'], ['rows', 'Data harian']]).map(([k, l]) => `<button data-ads-tab="${k}" ${liveOnly ? 'data-x-tab="live"' : ''} class="${k === u.tab ? 'active' : ''}">${l}</button>`).join('')}</div>
   <div data-ads-body><div class="spinner"></div></div>`;
 }
 
@@ -106,7 +106,7 @@ async function draw(team) {
     const q = `from=${encodeURIComponent(since(u.days))}${u.only ? `&only=${u.only}` : ''}`;
     const r = await api(`/api/reports/team/${team}?${q}`);
     body.innerHTML = `${accounts.length ? '' : `<div class="check small-note">Belum ada akun iklan. Cara paling cepat: <button class="link" data-goto="integrations">Integrasi Cepat</button>${team === 'adv' ? ' → Meta Ads (login Facebook atau scan QR)' : ''}, atau klik <b>+ Akun iklan</b> lalu <b>Impor CSV</b> hasil export dashboard iklan.</div>`}
-      <div class="row-between"><span></span><a class="btn small" href="/api/reports/team/${team}/export.csv?brand=${state.brandId}&${q}">Download CSV</a></div>
+      <div class="row-between"><button class="link" data-goto="reports">Master BCS semua tim →</button><a class="btn small" href="/api/reports/team/${team}/export.csv?brand=${state.brandId}&${q}">Download CSV</a></div>
       ${reportHtml(r)}`;
     window.timOps?.campaignBanner?.(body);
     window.timAi?.mount(body, team, { days: u.days });

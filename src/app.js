@@ -393,6 +393,15 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
     res.status(204).end();
   });
 
+  // Permalink app: URL seperti /konten, /adv, /cs, /planner dilayani index.html.
+  // Rute API (/api, /lp, /p, /uploads) dan berkas nyata sudah ditangani di atas.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (/^\/(api|lp|p|uploads)(\/|$)/.test(req.path)) return next();
+    if (path.extname(req.path)) return next();
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+
   app.use((err, _req, res, _next) => {
     res.status(err.status || 500).json({ error: err.message || 'Terjadi kesalahan' });
   });
