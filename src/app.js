@@ -14,6 +14,7 @@ import { opsRoutes, notifyFailedPosts } from './ops.js';
 import { founderRoutes, runFounderBriefs } from './founder.js';
 import { factoryRoutes } from './factory/routes.js';
 import { fotoAiRoutes } from './foto-ai.js';
+import { storeRoutes } from './store.js';
 import { factoryAgentRoutes } from './factory/agent-routes.js';
 import { brandStoreRoutes } from './brand-store.js';
 import { teamRoutes, brandScope } from './team.js';
@@ -190,6 +191,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   partnerRoutes(app, db);
   lpRoutes(app, db, scope);
   fotoAiRoutes(app, db, scope);
+  storeRoutes(app, db, scope);
   connectRoutes(app, db, scope);
   inboxRoutes(app, db, scope, { storage, ownerUsername: username });
   reportRoutes(app, db, scope, { ownerUsername: username });
