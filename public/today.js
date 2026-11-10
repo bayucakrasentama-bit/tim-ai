@@ -83,6 +83,7 @@ function build(d) {
 }
 
 const AREAS = [['Konten', '✍️'], ['CS', '💬'], ['Iklan', '📣']];
+const openCols = new Set(); // kolom yang dibuka "N lagi" — dipertahankan antar render
 function render() {
   if (!T.data) {
     view.innerHTML = '<div class="spinner"></div>';
@@ -103,11 +104,15 @@ function render() {
     ${areas.length ? `<div class="card td-progress"><div class="row-between"><b>${todo.length ? `${finished} dari ${todo.length} tindakan selesai` : 'Tidak ada yang mendesak hari ini'}</b><span class="hint">${pctDone}%</span></div><div class="pbar"><span style="width:${pctDone}%"></span></div></div>
     <div class="td-grid ${areas.length === 1 ? 'td-grid-single' : ''}">${AREAS.filter(([area]) => areas.includes(area)).map(([area, icon]) => {
       const list = items.filter((i) => i.area === area);
-      return `<div class="card td-col"><div class="td-head">${icon} <b>${area}</b> <span class="hint">${list.filter((i) => !i.info && !dn.has(i.key)).length} perlu tindakan</span></div>
-        ${list.map((i) => `<div class="td-item ${dn.has(i.key) ? 'is-done' : ''} tone-${i.tone}">
+      const rest = Math.max(0, list.length - 6);
+      return `<div class="card td-col ${openCols.has(area) ? 'is-open' : ''}"><div class="td-head">${icon} <b>${area}</b> <span class="hint">${list.filter((i) => !i.info && !dn.has(i.key)).length} perlu tindakan</span></div>
+        ${list.map((i, ix) => `<div class="td-item ${dn.has(i.key) ? 'is-done' : ''} tone-${i.tone} ${ix >= 6 ? 'td-more' : ''}">
           ${i.info ? '<span class="td-dot"></span>' : `<input type="checkbox" data-td-done="${esc(i.key)}" ${dn.has(i.key) ? 'checked' : ''} aria-label="Tandai selesai">`}
-          <div class="td-body"><div class="td-title">${esc(i.title)}</div><div class="hint">${esc(i.meta || '')}</div></div>
-          <button class="ghost small" data-td-go="${esc(i.go)}" ${i.tab ? `data-td-tab="${esc(i.tab)}"` : ''}>${esc(i.label)} →</button></div>`).join('') || '<p class="hint td-empty">Aman, tidak ada yang perlu dikerjakan.</p>'}</div>`;
+          <div class="td-body"><div class="td-title">${esc(i.title)}</div>
+            ${i.fields ? `<div class="td-fields">${i.fields.map((f) => `<span class="td-field"><b>${esc(f.k)}</b>${esc(f.v)}</span>`).join('')}</div>` : ''}
+            <div class="hint">${esc(i.meta || '')}</div></div>
+          <button class="ghost small" data-td-go="${esc(i.go)}" ${i.tab ? `data-td-tab="${esc(i.tab)}"` : ''}>${esc(i.label)} →</button></div>`).join('') || '<p class="hint td-empty">Aman, tidak ada yang perlu dikerjakan.</p>'}
+        ${rest ? `<button type="button" class="ghost small td-toggle" data-td-toggle data-area="${esc(area)}">${rest} lagi →</button>` : ''}</div>`;
     }).join('')}</div>` : '<p class="hint td-empty">Pilih pekerjaan di atas untuk mulai.</p>'}`;
 }
 async function load() {
@@ -120,6 +125,14 @@ async function load() {
 view.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
+  if (b.dataset.tdToggle !== undefined) {
+    const col = b.closest('.td-col');
+    const area = b.dataset.area;
+    const open = !col.classList.contains('is-open');
+    col.classList.toggle('is-open', open);
+    if (open) openCols.add(area); else openCols.delete(area);
+    b.textContent = open ? 'Sembunyikan ↑' : `${col.querySelectorAll('.td-item.td-more').length} lagi →`;
+  }
   if (b.dataset.tdRefresh !== undefined) { T.data = null; render(); }
   if (b.dataset.tdGo) {
     if (b.dataset.tdTab) {
