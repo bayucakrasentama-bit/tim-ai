@@ -36,7 +36,7 @@
     const root = v();
     if (!root) return;
     root.innerHTML = '<div class="loading">Memuat katalog…</div>';
-    const j = await api('GET', R() + '/products');
+    const j = await api(R() + '/products');
     products = j.products || [];
     root.innerHTML = `
       <div class="section-head">
@@ -59,7 +59,7 @@
   async function admin() {
     const root = v();
     root.innerHTML = '<div class="loading">Memuat…</div>';
-    const j = await api('GET', R() + '/admin/products');
+    const j = await api(R() + '/admin/products');
     const rows = j.products || [];
     root.innerHTML = `
       <div class="section-head">
@@ -81,12 +81,12 @@
       </div>`;
     $('#store-back', root)?.addEventListener('click', load);
     root.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
-      await api('PATCH', R() + '/admin/products/' + b.dataset.toggle, { published: b.dataset.pub === '1' });
+      await api(R() + '/admin/products/' + b.dataset.toggle, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ published: b.dataset.pub === '1' }) });
       admin();
     }));
     root.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
       if (!confirm('Hapus produk ini?')) return;
-      await api('DELETE', R() + '/admin/products/' + b.dataset.del);
+      await api(R() + '/admin/products/' + b.dataset.del, { method: 'DELETE' });
       admin();
     }));
   }

@@ -86,7 +86,7 @@
       const fields = {};
       (state.tools.find((x) => x.id === state.sel)?.fields || []).forEach((f) => { fields[f.k] = $(`#ff-${f.k}`)?.value || ''; });
       const body = { tool: state.sel, photos: state.photos.slice(0, 4), fields, extra: $('#ff-extra')?.value || '', ratio: $('#ff-ratio')?.value || '' };
-      const res = await api('POST', `${R()}/generate`, body);
+      const res = await api(`${R()}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (res.error) toast(res.error);
       if (res.result) { state.results.unshift(res.result); draw(); toast('Foto jadi!'); }
       else { go.disabled = false; go.textContent = '✨ Buat Foto'; }
@@ -95,7 +95,7 @@
 
   S.viewHooks.fotoai = async () => {
     if (!state.tools.length) {
-      const res = await api('GET', `${R()}/tools`);
+      const res = await api(`${R()}/tools`);
       state.tools = res.tools || [];
     }
     draw();
