@@ -73,11 +73,13 @@ function build(d) {
     const target = { roas: Number(String(t.roas).replace(',', '.')) || null, cpa: Number(String(t.cpa).replace(/\D/g, '')) || null };
     for (const c of camps) {
       const [v, why] = window.timAgents.verdict({ name: c.key, spend: c.spend || 0, conv: c.conversions || 0, revenue: c.revenue || 0, ctr: c.ctr ? c.ctr * 100 : 0, freq: 0 }, target);
-      if (v === 'KILL' || v === 'SCALE') items.push({ key: `ads:${v}:${c.key}:${today()}`, area: 'Iklan', tone: v === 'KILL' ? 'bad' : 'ok', title: `${v === 'KILL' ? 'Matikan' : 'Naikkan budget'}: ${c.key}`, meta: `${why} · spend 7 hari ${rp(c.spend)} · ROAS ${x2(c.roas)}`, go: 'adv', label: 'Buka Iklan' });
+      if (v === 'KILL' || v === 'SCALE') items.push({ key: `ads:${v}:${c.key}:${today()}`, area: 'Iklan', tone: v === 'KILL' ? 'bad' : 'ok', title: `${v === 'KILL' ? 'Matikan' : 'Naikkan budget'}: ${c.key}`, meta: why, fields: [{ k: 'Spend 7 hari', v: rp(c.spend) }, { k: 'ROAS', v: x2(c.roas) }], go: 'adv', label: 'Buka Iklan' });
     }
   }
   if (d.founder && !d.founder.enabled) items.push({ key: 'founder:brief', area: 'Iklan', tone: 'info', title: 'Laporan pagi otomatis belum aktif', meta: 'Ringkasan semua tim terkirim ke WhatsApp/Telegram tiap pagi', go: 'founder', label: 'Atur', tab: 'brief' });
-  return items;
+  // Kartu kembar (nama campaign sama) dibuang — checklist harus unik per tindakan
+  const seen = new Set();
+  return items.filter((i) => (seen.has(i.key) ? false : (seen.add(i.key), true)));
 }
 
 const AREAS = [['Konten', '✍️'], ['CS', '💬'], ['Iklan', '📣']];

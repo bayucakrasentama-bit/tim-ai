@@ -39,9 +39,19 @@
 .td-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
 .td-item input[type=checkbox] { margin: 3px 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
 .td-body { flex: 1; min-width: 0; }
-.td-title { font-weight: 600; font-size: 14px; line-height: 1.35; }
+.td-title { font-weight: 600; font-size: 14px; line-height: 1.35; text-wrap: pretty; min-width: 0; }
 .td-body .hint { margin: 2px 0 0; overflow-wrap: anywhere; }
-.td-item > button { flex: none; white-space: nowrap; }
+.td-item > button { flex: none; white-space: nowrap; align-self: center; }
+
+/* Angka metrik jadi chip label:value, bukan paragraf */
+.td-fields { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.td-field { font: 500 12px/1.3 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; background: var(--bg); white-space: nowrap; }
+.td-field b { color: var(--ink); font-weight: 600; margin-right: 5px; }
+
+/* List panjang disembunyikan sampai diminta */
+.td-item.td-more { display: none; }
+.td-col.is-open .td-item.td-more { display: flex; }
+.td-toggle { margin-top: 8px; }
 .td-item.tone-bad .td-title { color: var(--bad); }
 .td-item.is-done .td-title { color: var(--muted); text-decoration: line-through; }
 .td-dot { width: 8px; height: 8px; margin: 6px 4px 0; border-radius: 50%; background: var(--info); flex: none; }
