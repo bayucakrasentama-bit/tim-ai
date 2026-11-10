@@ -36,12 +36,12 @@
 .td-grid.td-grid-single { grid-template-columns: minmax(0, 1fr); }
 .td-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; }
 .td-head .hint { margin: 0 0 0 auto; }
-.td-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.td-item { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
 .td-item input[type=checkbox] { margin: 3px 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
-.td-body { flex: 1; min-width: 0; }
+.td-body { flex: 1 1 150px; min-width: 0; }
 .td-title { font-weight: 600; font-size: 14px; line-height: 1.35; text-wrap: pretty; min-width: 0; }
 .td-body .hint { margin: 2px 0 0; overflow-wrap: anywhere; }
-.td-item > button { flex: none; white-space: nowrap; align-self: center; }
+.td-item > button { flex: none; white-space: nowrap; align-self: center; margin-left: auto; }
 
 /* Angka metrik jadi chip label:value, bukan paragraf */
 .td-fields { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
