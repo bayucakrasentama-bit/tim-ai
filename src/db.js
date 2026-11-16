@@ -539,7 +539,8 @@ created_at TEXT NOT NULL
     updated_at TEXT NOT NULL,
     started_at TEXT,
     finished_at TEXT,
-    options TEXT NOT NULL DEFAULT '{}'
+    options TEXT NOT NULL DEFAULT '{}',
+    mac_product TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS factory_feedback (
     id ${idType},
@@ -609,7 +610,7 @@ const ADDED_COLUMNS = [
   ['posts', 'content_id', 'INTEGER'], ['posts', 'created_by', 'TEXT'],
   ['users', 'team', 'TEXT'], ['users', 'email', 'TEXT'], ['posts', 'asset_id', 'INTEGER'],
   ['metrics', 'external_id', 'TEXT'],
-  ['factory_jobs', 'options', "TEXT NOT NULL DEFAULT '{}'"],
+  ['factory_jobs', 'options', "TEXT NOT NULL DEFAULT '{}'"], ['factory_jobs', 'mac_product', 'TEXT'],
 ['partners', 'stats'], ['partners', 'stats_at'],
 ['partner_posts', 'tracked', 'INTEGER'], ['partner_posts', 'refreshed_at'], ['partner_posts', 'thumbnail'], ['partner_posts', 'duration', 'INTEGER'],
 ['partner_posts', 'posted_at'], ['partner_posts', 'product'], ['partner_posts', 'error'],

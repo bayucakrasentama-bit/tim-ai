@@ -87,15 +87,43 @@ function agentCard() {
   const leg = a.legacy && typeof a.legacy === 'object'
     ? Object.entries(a.legacy).map(([k, v]) => `${esc(k)} ${typeof v === 'object' && v ? `${num(v.done)}/${num(v.quota)}` : esc(v)}`).join(' · ') : '';
   return `<div class="card fx-agent ${on ? 'on' : 'off'}">
-    <div><span class="fx-dot" aria-hidden="true"></span> <b>${on ? `Mac mini online — sedang ${esc(a.state || 'siaga')}` : 'Mac mini offline — produksi nunggu Mac nyala'}</b></div>
+    <div><span class="fx-dot" aria-hidden="true"></span> <b>${on ? `Mac mini online — ${esc(({ idle: 'siaga', producing: `produksi request #${a.job_id ?? '?'}`, legacy: 'produksi rutin' })[a.state] || a.state || 'siaga')}` : 'Mac mini offline — produksi nunggu Mac nyala'}</b></div>
     ${a.drive_free_gb != null ? `<div class="hint">Ruang kosong: ${esc(num(a.drive_free_gb))} GB</div>` : ''}
     ${leg ? `<div class="hint">Produksi lama: ${leg}</div>` : ''}
   </div>`;
 }
 
+// Statistik produk yang sudah terpasang di Mac mini (dari heartbeat agen; difilter ke brand aktif oleh server).
+function macCard() {
+  const list = Array.isArray(agent?.products) ? agent.products : [];
+  if (!list.length) return '';
+  const rows = list.map((p) => {
+    const pct = p.quota ? Math.min(100, Math.round((p.done / p.quota) * 100)) : 0;
+    return `<tr>
+      <td><b>${esc(p.name)}</b>${p.own ? '' : `<div class="hint">${esc(p.brand || 'tanpa brand')}</div>`}</td>
+      <td class="fx-prog"><div class="fx-bar"><i style="width:${pct}%"></i></div><span class="hint">${num(p.done)}/${num(p.quota)}</span></td>
+      <td>${num(p.total)}</td><td>${num(p.today)}</td>
+      ${p.drive ? `<td><b>${num(p.drive.ready)}</b><div class="hint">dari ${num(p.drive.videos)}</div></td><td>${num(p.drive.used)}</td><td class="hint">${esc(fmtEta(p.drive.last_activity))}</td>` : '<td>–</td><td>–</td><td class="hint">–</td>'}
+      <td>${p.failed ? num(p.failed) : '–'}</td>
+      <td>${p.folder_url ? `<a href="${esc(p.folder_url)}" target="_blank" rel="noopener">Folder Drive</a>` : '–'}</td>
+      <td>${p.own === false ? '' : `<button class="ghost small" style="white-space:nowrap" data-fx-mac="${esc(p.slug)}">+ Video</button>`}</td></tr>`;
+  }).join('');
+  return `<div class="card"><div class="label">Produksi di Mac mini</div>
+    ${isAdmin() ? '<div class="hint">Sebagai owner/admin kamu melihat produk semua brand. Tambah video dari brand pemilik produknya.</div>' : ''}
+    <div class="hint">Produksi: kuota berjalan, total video dibuat, dan yang jadi hari ini. Stok Drive: video di folder produk yang belum ditandai "Sudah dipakai" oleh tim (dicek tiap 10 menit).${agent?.seen_at ? ` Data per ${esc(fmtEta(agent.seen_at))}.` : ''}</div>
+    <div class="table-wrap"><table class="data">
+    <thead><tr><th>Produk</th><th>Kuota</th><th>Total dibuat</th><th>Hari ini</th><th>Siap posting</th><th>Sudah dipakai</th><th>Aktivitas Drive</th><th>Gagal</th><th>Drive</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
+}
+
+const macOf = (id) => (String(id || '').startsWith('mac:') ? (agent?.products || []).find((p) => `mac:${p.slug}` === String(id)) : null);
+
 function formCard() {
   const f = formState;
   const opts = products.map((p) => `<option value="${esc(p.id)}" ${String(p.id) === String(f.product_id) ? 'selected' : ''}>${esc(p.name)}${p.status === 'approved' ? '' : ' (draft)'}</option>`).join('');
+  const macList = (Array.isArray(agent?.products) ? agent.products : []).filter((p) => p.own !== false);
+  const macOpts = macList.length ? `<optgroup label="Produk di Mac (tanpa footage)">${macList.map((p) => `<option value="mac:${esc(p.slug)}" ${`mac:${p.slug}` === String(f.product_id) ? 'selected' : ''}>${esc(p.name)} — tambah video</option>`).join('')}</optgroup>` : '';
+  const mac = macOf(f.product_id);
   const product = products.find((p) => String(p.id) === String(f.product_id));
   const storyAngles = product?.profile?.story?.daily_pain_points;
   const angles = Array.isArray(storyAngles) && storyAngles.length ? storyAngles : product?.profile?.angles || [];
@@ -107,14 +135,14 @@ function formCard() {
     <form id="fx-form">
       <div class="fx-grid">
         <div><label class="label" for="fx-product">Produk</label>
-          <select id="fx-product" name="product_id"><option value="">Pilih produk…</option>${opts}<option value="__new">+ Produk baru</option></select>
-          <button type="button" class="ghost small" id="fx-edit-product" ${f.product_id ? '' : 'hidden'}>Edit profil</button></div>
+          <select id="fx-product" name="product_id"><option value="">Pilih produk…</option>${opts}${macOpts}<option value="__new">+ Produk baru</option></select>
+          <button type="button" class="ghost small" id="fx-edit-product" ${f.product_id && !mac ? '' : 'hidden'}>Edit profil</button></div>
         <div><label class="label" for="fx-target">Target video (1–20.000)</label>
           <input id="fx-target" name="target" type="number" min="1" max="20000" value="${esc(f.target)}"></div>
       </div>
       <div class="label">CTA</div>
       <div class="fx-radios">${Object.entries(CTA).map(([k, v]) => `<label><input type="radio" name="cta" value="${k}" ${f.cta === k ? 'checked' : ''}> ${v}</label>`).join('')}</div>
-      <div class="fx-grid">
+      ${mac ? `<div class="hint">Produk ini sudah terpasang di Mac mini (${num(mac.total)} video terkirim). Video baru memakai footage, script, dan suara yang sudah ada, dengan kombinasi yang belum pernah dipakai. Hasilnya masuk folder Drive baru khusus request ini.</div>` : `<div class="fx-grid">
         ${select('fx-angle', 'Angle video / topik', [['auto', 'Otomatis (rotasi semua angle)'], ...angles.map((a) => [a, a])], f.angle)}
         ${select('fx-duration', 'Durasi per video', (optionCatalog.durations || ['15-30','30-45','45-60']).map((r) => [r, `${String(r).replace('-', '–')} detik`]), f.duration_range)}
       </div>
@@ -132,7 +160,7 @@ function formCard() {
       </div>
       <label class="label" for="fx-footage">Link folder Drive footage</label>
       <input id="fx-footage" name="footage_url" type="url" placeholder="https://drive.google.com/drive/folders/…" value="${esc(f.footage_url)}">
-      <div class="hint">Share folder ke bayucakrasentama@gmail.com dulu.</div>
+      <div class="hint">Share folder ke bayucakrasentama@gmail.com dulu.</div>`}
       <div class="hint" id="fx-est"></div>
       <div class="btn-row"><button type="submit" class="primary">Antrekan produksi</button></div>
     </form></div>`;
@@ -193,13 +221,13 @@ function draw() {
   const v = viewEl();
   if (!v) return;
   v.innerHTML = `<div class="head"><h2>Motion Factory</h2><div class="hint">Produksi video massal otomatis di Mac mini.</div></div>
-    <div id="fx-top">${agentCard()}</div><div id="fx-formwrap">${formCard()}</div><div id="fx-jobs">${jobsCard()}</div>`;
+    <div id="fx-top">${agentCard()}${macCard()}</div><div id="fx-formwrap">${formCard()}</div><div id="fx-jobs">${jobsCard()}</div>`;
   updateEstimate();
 }
 
 // Refresh berkala hanya mengganti kartu status & tabel, supaya isian form tidak hilang.
 function redrawLive() {
-  if ($('#fx-top')) $('#fx-top').innerHTML = agentCard();
+  if ($('#fx-top')) $('#fx-top').innerHTML = agentCard() + macCard();
   if ($('#fx-jobs')) $('#fx-jobs').innerHTML = jobsCard();
 }
 
@@ -225,7 +253,7 @@ function readForm() {
   if (!f) return;
   formState = {
     product_id: f.product_id.value === '__new' ? '' : f.product_id.value, target: f.target.value,
-    cta: f.cta.value || 'kerkun', footage_url: f.footage_url.value,
+    cta: f.cta.value || 'kerkun', footage_url: f.footage_url?.value || '',
     angle: $('#fx-angle')?.value || 'auto',
     voice_id: $('#fx-voice')?.value || 'auto', gender: $('#fx-gender')?.value || 'auto', age_range: $('#fx-age')?.value || 'auto', accent: $('#fx-accent')?.value || 'auto',
     voice_speed: Number($('#fx-speed')?.value || 1), preset: $('#fx-preset')?.value || 'random',
@@ -254,6 +282,15 @@ document.addEventListener('input', (e) => { if (e.target.id === 'fx-target') upd
 document.addEventListener('click', async (e) => {
   const v = viewEl();
   if (!v || !v.contains(e.target)) return;
+  const macBtn = e.target.closest('[data-fx-mac]');
+  if (macBtn) {
+    readForm();
+    formState.product_id = `mac:${macBtn.dataset.fxMac}`;
+    $('#fx-formwrap').innerHTML = formCard(); updateEstimate();
+    $('#fx-formwrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('#fx-target')?.focus();
+    return;
+  }
   if (e.target.id === 'fx-edit-product') { readForm(); const p = products.find((x) => String(x.id) === String(formState.product_id)); if (p) openProfile(p); return; }
   const btn = e.target.closest('[data-fx-act]');
   if (!btn) return;
@@ -278,6 +315,17 @@ document.addEventListener('submit', async (e) => {
   const target = Number(f.target);
   if (!f.product_id) return toast('Pilih produk dulu');
   if (!Number.isInteger(target) || target < 1 || target > 20000) return toast('Target harus 1–20.000');
+  if (macOf(f.product_id)) {
+    const mbtn = e.target.querySelector('button[type=submit]');
+    mbtn.disabled = true;
+    try {
+      await api('/api/factory/jobs', json('POST', { mac_product: macOf(f.product_id).slug, target, cta: f.cta }));
+      toast('Request masuk antrean');
+      await loadAll(); redrawLive();
+    } catch (ex) { toast(ex.message); }
+    mbtn.disabled = false;
+    return;
+  }
   if (!f.footage_url.trim()) return toast('Link folder Drive footage wajib diisi');
   const sbtn = e.target.querySelector('button[type=submit]');
   sbtn.disabled = true;
