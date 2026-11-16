@@ -87,7 +87,7 @@ function agentCard() {
   const leg = a.legacy && typeof a.legacy === 'object'
     ? Object.entries(a.legacy).map(([k, v]) => `${esc(k)} ${typeof v === 'object' && v ? `${num(v.done)}/${num(v.quota)}` : esc(v)}`).join(' · ') : '';
   return `<div class="card fx-agent ${on ? 'on' : 'off'}">
-    <div><span class="fx-dot" aria-hidden="true"></span> <b>${on ? `Mac mini online — sedang ${esc(a.state || 'siaga')}` : 'Mac mini offline — produksi nunggu Mac nyala'}</b></div>
+    <div><span class="fx-dot" aria-hidden="true"></span> <b>${on ? `Mac mini online — ${esc(({ idle: 'siaga', producing: `produksi request #${a.job_id ?? '?'}`, legacy: 'produksi rutin' })[a.state] || a.state || 'siaga')}` : 'Mac mini offline — produksi nunggu Mac nyala'}</b></div>
     ${a.drive_free_gb != null ? `<div class="hint">Ruang kosong: ${esc(num(a.drive_free_gb))} GB</div>` : ''}
     ${leg ? `<div class="hint">Produksi lama: ${leg}</div>` : ''}
   </div>`;
@@ -100,15 +100,16 @@ function macCard() {
   const rows = list.map((p) => {
     const pct = p.quota ? Math.min(100, Math.round((p.done / p.quota) * 100)) : 0;
     return `<tr>
-      <td><b>${esc(p.name)}</b></td>
+      <td><b>${esc(p.name)}</b>${p.own ? '' : `<div class="hint">${esc(p.brand || 'tanpa brand')}</div>`}</td>
       <td class="fx-prog"><div class="fx-bar"><i style="width:${pct}%"></i></div><span class="hint">${num(p.done)}/${num(p.quota)}</span></td>
       <td>${num(p.total)}</td><td>${num(p.today)}</td>
       ${p.drive ? `<td><b>${num(p.drive.ready)}</b><div class="hint">dari ${num(p.drive.videos)}</div></td><td>${num(p.drive.used)}</td><td class="hint">${esc(fmtEta(p.drive.last_activity))}</td>` : '<td>–</td><td>–</td><td class="hint">–</td>'}
       <td>${p.failed ? num(p.failed) : '–'}</td>
       <td>${p.folder_url ? `<a href="${esc(p.folder_url)}" target="_blank" rel="noopener">Folder Drive</a>` : '–'}</td>
-      <td><button class="ghost small" style="white-space:nowrap" data-fx-mac="${esc(p.slug)}">+ Video</button></td></tr>`;
+      <td>${p.own === false ? '' : `<button class="ghost small" style="white-space:nowrap" data-fx-mac="${esc(p.slug)}">+ Video</button>`}</td></tr>`;
   }).join('');
   return `<div class="card"><div class="label">Produksi di Mac mini</div>
+    ${isAdmin() ? '<div class="hint">Sebagai owner/admin kamu melihat produk semua brand. Tambah video dari brand pemilik produknya.</div>' : ''}
     <div class="hint">Produksi: kuota berjalan, total video dibuat, dan yang jadi hari ini. Stok Drive: video di folder produk yang belum ditandai "Sudah dipakai" oleh tim (dicek tiap 10 menit).${agent?.seen_at ? ` Data per ${esc(fmtEta(agent.seen_at))}.` : ''}</div>
     <div class="table-wrap"><table class="data">
     <thead><tr><th>Produk</th><th>Kuota</th><th>Total dibuat</th><th>Hari ini</th><th>Siap posting</th><th>Sudah dipakai</th><th>Aktivitas Drive</th><th>Gagal</th><th>Drive</th><th></th></tr></thead>
@@ -120,7 +121,7 @@ const macOf = (id) => (String(id || '').startsWith('mac:') ? (agent?.products ||
 function formCard() {
   const f = formState;
   const opts = products.map((p) => `<option value="${esc(p.id)}" ${String(p.id) === String(f.product_id) ? 'selected' : ''}>${esc(p.name)}${p.status === 'approved' ? '' : ' (draft)'}</option>`).join('');
-  const macList = Array.isArray(agent?.products) ? agent.products : [];
+  const macList = (Array.isArray(agent?.products) ? agent.products : []).filter((p) => p.own !== false);
   const macOpts = macList.length ? `<optgroup label="Produk di Mac (tanpa footage)">${macList.map((p) => `<option value="mac:${esc(p.slug)}" ${`mac:${p.slug}` === String(f.product_id) ? 'selected' : ''}>${esc(p.name)} — tambah video</option>`).join('')}</optgroup>` : '';
   const mac = macOf(f.product_id);
   const product = products.find((p) => String(p.id) === String(f.product_id));

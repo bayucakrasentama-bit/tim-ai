@@ -25,8 +25,12 @@ beforeEach(async () => { sent = []; await t.db.run("UPDATE factory_jobs SET stat
 test('statistik produk Mac: divalidasi & difilter per brand', async () => {
   const r = await t.call('GET', '/api/factory/jobs');
   assert.equal(r.status, 200);
+  // user tes = owner → semua produk, produk brand aktif duluan
   const slugs = r.body.agent.products.map((p) => p.slug);
-  assert.deepEqual(slugs, ['olimex', 'jahat']);
+  assert.deepEqual(slugs.slice(0, 2), ['olimex', 'jahat']);
+  assert.deepEqual(slugs.slice(2).sort(), ['baru', 'zestmag']);
+  assert.equal(r.body.agent.products.find((p) => p.slug === 'zestmag').own, false);
+  assert.equal(r.body.agent.products[0].own, true);
   const jahat = r.body.agent.products[1];
   assert.equal(jahat.folder_url, null);
   assert.equal(jahat.done, 0);

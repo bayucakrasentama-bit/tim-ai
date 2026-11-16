@@ -283,7 +283,13 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     const pos = new Map(queue.map((q, i) => [Number(q.id), i + 1]));
     const agent = await agentState(db);
     const macProducts = agent.products;
-    agent.products = macProducts.filter((p) => p.brand_id === req.brand.id);
+    // Owner/admin melihat semua produk Mac (ringkasan lintas brand); anggota biasa hanya produk brand aktif.
+    // own = produk brand aktif (boleh dibuat request "tambah video" dari brand ini).
+    const names = new Map((await db.all('SELECT id, name FROM brands')).map((x) => [Number(x.id), x.name]));
+    agent.products = macProducts
+      .filter((p) => canManage(req.user) || p.brand_id === req.brand.id)
+      .map((p) => ({ ...p, own: p.brand_id === req.brand.id, brand: names.get(Number(p.brand_id)) || null }))
+      .sort((x, y) => Number(y.own) - Number(x.own));
     res.json({
       jobs: rows.map((j) => ({ ...j, product_name: j.mac_product ? macName(macProducts, j.mac_product) : j.product_name, options: (() => { try { return JSON.parse(j.options || '{}'); } catch { return { ...DEFAULT_OPTIONS }; } })(), queue_position: j.status === 'antre' ? pos.get(Number(j.id)) ?? null : null })),
       agent,
