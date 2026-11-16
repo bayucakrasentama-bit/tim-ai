@@ -43,6 +43,16 @@ test('agen: keyword aktif terbaca + ingest keyword salah 404', async () => {
   assert.equal((await t.call('POST', '/api/adlib/agent/ingest', { keyword_id: 1, ads: [] })).status, 401);
 });
 
+test('agen: bootstrap keyword idempoten (buat baru / aktifkan ulang)', async () => {
+  const c1 = await t.call('POST', '/api/adlib/agent/keywords', { keyword: 'detoks' }, AUTH);
+  assert.equal(c1.status, 200);
+  assert.equal(c1.body.created, true);
+  const c2 = await t.call('POST', '/api/adlib/agent/keywords', { keyword: 'detoks' }, AUTH);
+  assert.equal(c2.body.created, false);
+  assert.equal(c2.body.keyword.id, c1.body.keyword.id);
+  assert.equal((await t.call('POST', '/api/adlib/agent/keywords', { keyword: '  ' }, AUTH)).status, 400);
+});
+
 test('ingest: hitung baru, upsert saat scan ulang, complete menonaktifkan yang hilang', async () => {
   const kwId = (await t.call('GET', '/api/adlib/keywords')).body.keywords[0].id;
   const t1 = new Date().toISOString();

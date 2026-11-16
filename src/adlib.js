@@ -42,6 +42,23 @@ export function adlibAgentRoutes(app, db, { token } = {}) {
   app.get('/api/adlib/agent/keywords', guard, async (req, res) =>
     res.json({ keywords: await db.all('SELECT id, keyword, country FROM adlib_keywords WHERE active = 1 ORDER BY id') }));
 
+  // Agen boleh menambah/mengaktifkan keyword (bootstrap dari sisi scanner) — idempoten.
+  app.post('/api/adlib/agent/keywords', guard, async (req, res) => {
+    const keyword = clean(req.body?.keyword).slice(0, 200);
+    const country = clean(req.body?.country).toUpperCase().slice(0, 2) || 'ID';
+    if (!keyword) return res.status(400).json({ error: 'Keyword wajib diisi' });
+    const old = await db.get('SELECT * FROM adlib_keywords WHERE keyword = ? AND country = ?', keyword, country);
+    if (old) {
+      if (!old.active) await db.run('UPDATE adlib_keywords SET active = 1 WHERE id = ?', old.id);
+      return res.json({ keyword: old, created: false });
+    }
+    const rows = await db.run(
+      'INSERT INTO adlib_keywords (keyword, country, active, created_at) VALUES (?, ?, 1, ?) RETURNING *',
+      keyword, country, now(),
+    );
+    res.json({ keyword: rows[0], created: true });
+  });
+
   // Ingest hasil scan: { keyword_id, started_at, finished_at, complete, ads: [...] }.
   // complete=true → creative keyword itu yang tidak muncul di batch ini dianggap sudah berhenti.
   app.post('/api/adlib/agent/ingest', guard, async (req, res) => {
