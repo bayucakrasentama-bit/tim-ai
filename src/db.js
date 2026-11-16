@@ -566,6 +566,40 @@ created_at TEXT NOT NULL
     sort INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS adlib_keywords (
+    id ${idType},
+    keyword TEXT NOT NULL,
+    country TEXT NOT NULL DEFAULT 'ID',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_adlib_keywords_unique ON adlib_keywords(keyword, country)`,
+  `CREATE TABLE IF NOT EXISTS adlib_ads (
+    id ${idType},
+    creative_id TEXT NOT NULL UNIQUE,
+    keyword_id INTEGER,
+    page_name TEXT NOT NULL DEFAULT '',
+    start_date TEXT,
+    body_text TEXT NOT NULL DEFAULT '',
+    platforms TEXT NOT NULL DEFAULT '[]',
+    video INTEGER NOT NULL DEFAULT 0,
+    snapshot_url TEXT,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_adlib_ads_keyword ON adlib_ads(keyword_id)',
+  'CREATE INDEX IF NOT EXISTS idx_adlib_ads_page ON adlib_ads(page_name)',
+  `CREATE TABLE IF NOT EXISTS adlib_scans (
+    id ${idType},
+    keyword_id INTEGER,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    found INTEGER NOT NULL DEFAULT 0,
+    new_count INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'ok',
+    error TEXT
+  )`,
 ];
 
 // Kolom yang ditambahkan setelah versi pertama (database lama di-upgrade otomatis).

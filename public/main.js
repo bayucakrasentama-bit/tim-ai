@@ -23,6 +23,7 @@ import './medsos.js';
 import './studio-ai.js';
 import './foto-ai.js';
 import './store.js';
+import './adlib.js';
 import './agents.js';
 import './factory.js';
 import './cs-closer.js';

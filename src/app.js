@@ -39,6 +39,7 @@ import { partnerRoutes } from './partners.js';
 import { partnerToolRoutes, refreshTrackedPosts } from './partner-tools.js';
 import { lpRoutes, lpPublicRoute } from './lp-builder.js';
 import { connectRoutes, connectPublicRoutes } from './connect.js';
+import { adlibAgentRoutes, adlibRoutes } from './adlib.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
@@ -58,6 +59,8 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   // Template LP dari referensi bisa membawa gambar tertanam (base64), jadi body-nya besar.
   app.use('/api/lp-pages', express.json({ limit: '4mb' }));
   app.use('/api/foto-ai', express.json({ limit: '12mb' }));
+  // Batch scan Ad Library bisa ratusan creative sekaligus.
+  app.use('/api/adlib', express.json({ limit: '3mb' }));
   // Webhook chat butuh body mentah untuk verifikasi tanda tangan platform.
   app.use('/api/chat/webhook', express.raw({ type: '*/*', limit: '2mb' }), (req, _res, next) => {
     req.rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
@@ -145,6 +148,8 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   });
 
   storePublicRoutes(app, db);
+  // Agen scanner Ad Library di Mac (dikunci token Bearer), daftar SEBELUM gate login.
+  adlibAgentRoutes(app, db, { token: factoryToken });
   app.use('/api', async (req, res, next) => {
     req.user = await auth.currentUser(req);
     return req.user ? next() : res.status(401).json({ error: 'Belum login' });
@@ -193,6 +198,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   lpRoutes(app, db, scope);
   fotoAiRoutes(app, db, scope);
   storeRoutes(app, db, scope);
+  adlibRoutes(app, db, scope);
   connectRoutes(app, db, scope);
   inboxRoutes(app, db, scope, { storage, ownerUsername: username });
   reportRoutes(app, db, scope, { ownerUsername: username });
