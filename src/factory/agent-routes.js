@@ -163,15 +163,16 @@ export function factoryAgentRoutes(app, db, { token } = {}) {
     pause: [['antre', 'menyiapkan', 'produksi'], "'dijeda'"],
     resume: [['dijeda'], `CASE WHEN ${JOB_READY_SQL} THEN 'antre' ELSE 'menunggu_profil' END`],
     cancel: [['menunggu_profil', 'antre', 'menyiapkan', 'produksi', 'dijeda', 'gagal'], "'dibatalkan'"],
+    retry: [['gagal'], `CASE WHEN ${JOB_READY_SQL} THEN 'antre' ELSE 'menunggu_profil' END`, ', message = NULL, finished_at = NULL, eta_at = NULL'],
   };
   app.post('/api/factory/agent/requests/:id/:action', guard, async (req, res) => {
     const move = MOVES[req.params.action];
-    if (!move) return res.status(400).json({ error: 'Aksi harus pause, resume, atau cancel' });
+    if (!move) return res.status(400).json({ error: 'Aksi harus pause, resume, cancel, atau retry' });
     const j = await getJob(jobId(req));
     if (!j) return res.status(404).json({ error: 'Request nggak ketemu' });
-    const [from, toSql] = move;
+    const [from, toSql, extra = ''] = move;
     if (!from.includes(j.status)) return res.status(400).json({ error: `Request berstatus "${j.status}" nggak bisa di-${req.params.action}` });
-    const rows = await db.run(`UPDATE factory_jobs SET status = ${toSql}, updated_at = ? WHERE id = ? AND status IN (${inList(from)}) RETURNING id`, now(), j.id, ...from);
+    const rows = await db.run(`UPDATE factory_jobs SET status = ${toSql}, updated_at = ?${extra} WHERE id = ? AND status IN (${inList(from)}) RETURNING id`, now(), j.id, ...from);
     if (!rows.length) return res.status(409).json({ error: 'Status request sudah berubah, coba lagi' });
     const agent = await agentState(db);
     res.json({ job: shape(await getJob(j.id), await brandNames(), agent.products) });

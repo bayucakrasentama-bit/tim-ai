@@ -88,5 +88,9 @@ test('Hermes: overview, request lintas brand, jeda/lanjut/batal; token wajib', a
   assert.equal((await agent('POST', `/requests/${id}/resume`)).body.job.status, 'antre');
   assert.equal((await agent('POST', `/requests/${id}/cancel`)).body.job.status, 'dibatalkan');
   assert.equal((await agent('POST', `/requests/${id}/hapus`)).status, 400);
+  await t.db.run("UPDATE factory_jobs SET status = 'gagal', message = 'Kombinasi stem habis' WHERE id = ?", id);
+  const re = (await agent('POST', `/requests/${id}/retry`)).body.job;
+  assert.equal(re.status, 'antre');
+  assert.equal(re.message, null);
   assert.equal((await agent('POST', '/requests/99999/cancel')).status, 404);
 });
