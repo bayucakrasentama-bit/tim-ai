@@ -6,6 +6,7 @@ import { getSetting, now } from '../db.js';
 import { askClaude } from '../ai.js';
 import { canManage } from '../auth.js';
 import { slugify, parseFolderId, validateProfile, PROFILE_FIELDS, PALETTE_KEYS, normalizePalette, defaultRules } from './profile.js';
+import { cleanMacProducts, createMacJob, macName, JOB_READY_SQL } from './mac.js';
 import { VOICES, AGES, PERSONAS, PRESETS, LOOKS, SPEEDS, DURATIONS, DEFAULT_OPTIONS, normalizeOptions } from './options.js';
 
 let ask = askClaude;
@@ -81,9 +82,10 @@ Isi "compliance.banned_phrases" dengan kata/klaim terlarang yang relevan untuk p
 export async function agentState(db) {
   const raw = await getSetting(db, 'factory:agent');
   const a = raw ? parse(raw) : null;
-  if (!a || !a.seen_at) return { online: false, state: null, job_id: null, seen_at: null, drive_free_gb: null, legacy: null };
+  if (!a || !a.seen_at) return { online: false, state: null, job_id: null, seen_at: null, drive_free_gb: null, legacy: null, products: [] };
   const online = Date.now() - Date.parse(a.seen_at) < 120e3;
-  return { online, state: a.state ?? null, job_id: a.job_id ?? null, seen_at: a.seen_at, drive_free_gb: a.drive_free_gb ?? null, legacy: a.legacy ?? null };
+  // products: statistik semua produk di Mac (heartbeat terakhir; tetap tampil walau Mac offline).
+  return { online, state: a.state ?? null, job_id: a.job_id ?? null, seen_at: a.seen_at, drive_free_gb: a.drive_free_gb ?? null, legacy: a.legacy ?? null, products: cleanMacProducts(a.products) };
 }
 
 export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
@@ -279,14 +281,23 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     );
     const queue = await db.all("SELECT id FROM factory_jobs WHERE status = 'antre' ORDER BY priority DESC, id ASC");
     const pos = new Map(queue.map((q, i) => [Number(q.id), i + 1]));
+    const agent = await agentState(db);
+    const macProducts = agent.products;
+    agent.products = macProducts.filter((p) => p.brand_id === req.brand.id);
     res.json({
-      jobs: rows.map((j) => ({ ...j, options: (() => { try { return JSON.parse(j.options || '{}'); } catch { return { ...DEFAULT_OPTIONS }; } })(), queue_position: j.status === 'antre' ? pos.get(Number(j.id)) ?? null : null })),
-      agent: await agentState(db),
+      jobs: rows.map((j) => ({ ...j, product_name: j.mac_product ? macName(macProducts, j.mac_product) : j.product_name, options: (() => { try { return JSON.parse(j.options || '{}'); } catch { return { ...DEFAULT_OPTIONS }; } })(), queue_position: j.status === 'antre' ? pos.get(Number(j.id)) ?? null : null })),
+      agent,
     });
   });
 
   app.post('/api/factory/jobs', scope, async (req, res) => {
     const b = req.body || {};
+    if (b.mac_product !== undefined && b.mac_product !== null && b.mac_product !== '') {
+      // Tambah video untuk produk yang sudah terpasang di Mac: tanpa footage & profil.
+      const r = await createMacJob(db, (await agentState(db)).products, { brandId: req.brand.id, slug: String(b.mac_product), target: b.target, cta: b.cta, by: req.user.username });
+      if (r.error) return err(res, r.status, r.error);
+      return res.json({ job: await reloadJob(r.job_id) });
+    }
     const target = typeof b.target === 'string' && b.target.trim() !== '' ? Number(b.target) : b.target;
     if (!Number.isInteger(target) || target < 1 || target > 20000) return err(res, 400, 'Target harus bilangan bulat 1 sampai 20.000');
     if (!['kerkun', 'awareness', 'campur'].includes(b.cta)) return err(res, 400, 'CTA harus kerkun, awareness, atau campur');
@@ -314,7 +325,7 @@ export function factoryRoutes(app, db, scope, { upload, storage } = {}) {
     }
     // Kembali ke antre cuma kalau produknya approved; kalau tidak, menunggu_profil.
     const toSql = to === 'antre'
-      ? "CASE WHEN (SELECT status FROM factory_products WHERE id = factory_jobs.product_id) = 'approved' THEN 'antre' ELSE 'menunggu_profil' END"
+      ? `CASE WHEN ${JOB_READY_SQL} THEN 'antre' ELSE 'menunggu_profil' END`
       : '?';
     const toArgs = to === 'antre' ? [] : [to];
     // Atomik: hanya berubah kalau status masih sama seperti yang dicek (agen/user lain bisa mengubahnya bersamaan).
