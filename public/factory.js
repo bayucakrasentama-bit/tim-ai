@@ -103,15 +103,15 @@ function macCard() {
       <td><b>${esc(p.name)}</b></td>
       <td class="fx-prog"><div class="fx-bar"><i style="width:${pct}%"></i></div><span class="hint">${num(p.done)}/${num(p.quota)}</span></td>
       <td>${num(p.total)}</td><td>${num(p.today)}</td>
-      <td>${p.in_progress ? num(p.in_progress) : '–'}</td><td>${p.failed ? num(p.failed) : '–'}</td>
-      <td class="hint">${esc(fmtEta(p.last_at))}</td>
+      ${p.drive ? `<td><b>${num(p.drive.ready)}</b><div class="hint">dari ${num(p.drive.videos)}</div></td><td>${num(p.drive.used)}</td><td class="hint">${esc(fmtEta(p.drive.last_activity))}</td>` : '<td>–</td><td>–</td><td class="hint">–</td>'}
+      <td>${p.failed ? num(p.failed) : '–'}</td>
       <td>${p.folder_url ? `<a href="${esc(p.folder_url)}" target="_blank" rel="noopener">Folder Drive</a>` : '–'}</td>
       <td><button class="ghost small" style="white-space:nowrap" data-fx-mac="${esc(p.slug)}">+ Video</button></td></tr>`;
   }).join('');
   return `<div class="card"><div class="label">Produksi di Mac mini</div>
-    <div class="hint">Kuota berjalan, total semua video terkirim, dan yang terkirim hari ini.${agent?.seen_at ? ` Data per ${esc(fmtEta(agent.seen_at))}.` : ''}</div>
+    <div class="hint">Produksi: kuota berjalan, total video dibuat, dan yang jadi hari ini. Stok Drive: video di folder produk yang belum ditandai "Sudah dipakai" oleh tim (dicek tiap 10 menit).${agent?.seen_at ? ` Data per ${esc(fmtEta(agent.seen_at))}.` : ''}</div>
     <div class="table-wrap"><table class="data">
-    <thead><tr><th>Produk</th><th>Kuota</th><th>Total</th><th>Hari ini</th><th>Diproses</th><th>Gagal</th><th>Terakhir</th><th>Drive</th><th></th></tr></thead>
+    <thead><tr><th>Produk</th><th>Kuota</th><th>Total dibuat</th><th>Hari ini</th><th>Siap posting</th><th>Sudah dipakai</th><th>Aktivitas Drive</th><th>Gagal</th><th>Drive</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
 }
 

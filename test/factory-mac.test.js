@@ -9,7 +9,8 @@ const A = { authorization: `Bearer ${TOKEN}` };
 let t; let sent = [];
 const agent = (m, url, body) => t.call(m, `/api/factory/agent${url}`, body, A);
 const PRODUCTS = [
-  { slug: 'olimex', name: 'Olimex', brand_id: 1, done: 2010, quota: 2000, total: 2070, today: 156, failed: 6, in_progress: 0, last_at: '2026-11-16T05:38:20+00:00', folder_url: 'https://drive.google.com/drive/folders/abc' },
+  { slug: 'olimex', name: 'Olimex', brand_id: 1, done: 2010, quota: 2000, total: 2070, today: 156, failed: 6, in_progress: 0, last_at: '2026-11-16T05:38:20+00:00', folder_url: 'https://drive.google.com/drive/folders/abc',
+    drive: { videos: 2010, used: 15, ready: 999999, last_activity: '2026-11-16T05:35:02.404Z', checked_at: '2026-11-16T07:13:52+00:00', junk: '<b>' } },
   { slug: 'zestmag', name: 'Zestmag', brand_id: 2, done: 2376, quota: 10000, total: 2376, today: 0, failed: 34, in_progress: 0, last_at: null, folder_url: null },
   { slug: 'baru', name: 'Baru', brand_id: null, done: 0, quota: 10, total: 0, today: 0, failed: 0, in_progress: 0, last_at: null, folder_url: null },
   { slug: 'BAD SLUG', name: 'x' },
@@ -30,6 +31,8 @@ test('statistik produk Mac: divalidasi & difilter per brand', async () => {
   assert.equal(jahat.folder_url, null);
   assert.equal(jahat.done, 0);
   assert.equal(r.body.agent.products[0].today, 156);
+  assert.deepEqual(r.body.agent.products[0].drive, { videos: 2010, used: 15, ready: 1995, last_activity: '2026-11-16T05:35:02.404Z', checked_at: '2026-11-16T07:13:52+00:00' });
+  assert.equal(jahat.drive, null);
 });
 
 test('request tambah video produk Mac: antre tanpa footage, diklaim agen sebagai mac_product, done → notif', async () => {

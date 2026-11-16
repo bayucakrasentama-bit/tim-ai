@@ -10,6 +10,14 @@ const int = (v) => (Number.isInteger(v) && v >= 0 ? v : 0);
 // Dipakai di WHERE/CASE factory_jobs: job produk Mac tidak butuh profil yang disetujui.
 export const JOB_READY_SQL = "(factory_jobs.mac_product IS NOT NULL OR (SELECT status FROM factory_products WHERE id = factory_jobs.product_id) = 'approved')";
 
+// Stok video di folder Drive produk: total .mp4, yang sudah ditandai dipakai tim ("Sudah dipakai…"), sisa siap posting.
+const iso = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v.slice(0, 40) : null);
+function cleanDrive(d) {
+  if (!d || typeof d !== 'object') return null;
+  const videos = int(d.videos); const used = Math.min(int(d.used), videos);
+  return { videos, used, ready: videos - used, last_activity: iso(d.last_activity), checked_at: iso(d.checked_at) };
+}
+
 // Isi heartbeat dari agen → daftar produk yang aman ditampilkan (data dari luar, jadi divalidasi ketat).
 export function cleanMacProducts(list) {
   if (!Array.isArray(list)) return [];
@@ -24,6 +32,7 @@ export function cleanMacProducts(list) {
       failed: int(p.failed), in_progress: int(p.in_progress),
       last_at: typeof p.last_at === 'string' ? p.last_at.slice(0, 40) : null,
       folder_url: typeof p.folder_url === 'string' && p.folder_url.startsWith('https://drive.google.com/') ? p.folder_url.slice(0, 300) : null,
+      drive: cleanDrive(p.drive),
     });
   }
   return out;
