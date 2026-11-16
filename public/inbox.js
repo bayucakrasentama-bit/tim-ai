@@ -142,6 +142,7 @@ async function openConv(id, { quiet = false } = {}) {
         <button class="ib-tool" id="ib-tpl" title="Template cepat (ketik / di kotak pesan)">⚡ Template</button>
         <label class="ib-tool" title="Kirim gambar">🖼 Gambar<input type="file" id="ib-img" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
         <button class="ib-tool ai" id="ib-suggest" title="Saran balasan dari AI">✨ Saran balasan</button>
+        <button class="ib-tool ai ${c.ai_mode === 'auto' ? 'on' : ''}" id="ib-ai" title="AI balas sendiri untuk chat ini. Begitu CS kirim balasan manual, AI otomatis berhenti (takeover).">${c.ai_mode === 'auto' ? '🤖 AI Auto aktif' : '🤖 AI Auto'}</button>
         <span class="ib-pending" id="ib-pending"></span>
       </div>
       <div class="ib-input"><textarea id="ib-text" rows="2" placeholder="Tulis balasan… (Enter kirim, Shift+Enter baris baru, / untuk template)"></textarea>
@@ -231,6 +232,16 @@ function bindChat() {
       b.disabled = false;
       b.textContent = '✨ Saran balasan';
     }
+  });
+  $('#ib-ai').addEventListener('click', async () => {
+    const b = $('#ib-ai');
+    const next = c.ai_mode === 'auto' ? 'off' : 'auto';
+    b.disabled = true;
+    try {
+      await api(`/api/inbox/conversations/${c.id}`, json('PATCH', { ai_mode: next }));
+      toast(next === 'auto' ? 'AI Auto aktif — AI balas sendiri sampai CS ambil alih' : 'AI Auto mati (CS ambil alih)');
+      await openConv(c.id);
+    } catch (ex) { toast(ex.message); } finally { b.disabled = false; }
   });
   $('#ib-assign').addEventListener('change', async (e) => {
     await api(`/api/inbox/conversations/${c.id}`, json('PATCH', { assignee_id: e.target.value === '' ? null : Number(e.target.value) }));

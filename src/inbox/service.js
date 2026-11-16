@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { now, getSetting, setSetting } from '../db.js';
 import { chatConnectors } from './connectors.js';
 import { preview, ORDER_EVENTS } from './common.js';
+import { draftReply } from './ai-agent.js';
 
 export const creds = (ch) => JSON.parse(ch.credentials || '{}');
 export const newWebhookToken = () => crypto.randomBytes(18).toString('base64url');
@@ -77,6 +78,8 @@ export async function ingestMessage(db, conv, m, { staffId = null, auto = false,
 // ---- Kirim balasan ----
 export async function sendReply(db, convId, { text = '', image = null, imageUrl = null, user = null, auto = false, sender = null, meta = {} }) {
   const conv = await db.get('SELECT * FROM conversations WHERE id = ?', convId);
+  // Takeover manusia: begitu CS mengirim manual, agen AI berhenti membalas sendiri di chat ini.
+  if (!auto && user) await db.run("UPDATE conversations SET ai_mode = 'off' WHERE id = ? AND ai_mode = 'auto'", convId);
   const channel = await db.get('SELECT * FROM chat_channels WHERE id = ?', conv.channel_id);
   const connector = chatConnectors[channel.platform];
   const base = { direction: 'out', sender: sender || (auto ? 'Auto-reply' : user?.username || ''), type: image ? 'image' : 'text', text, media_url: imageUrl, meta };
@@ -138,11 +141,28 @@ export async function runAutoReply(db, conv, inbound) {
 
 export const fillTemplate = (tpl, vars) => String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
 
+// Balas sendiri dengan agen AI kalau percakapan ber-mode 'auto' (ala wacrm).
+// Gagal AI = diamkan saja (CS yang pegang); auto-reply rule sudah jalan lebih dulu.
+export async function maybeAiReply(db, conv) {
+  if (conv.ai_mode !== 'auto') return null;
+  try {
+    const brand = await db.get('SELECT * FROM brands WHERE id = ?', conv.brand_id);
+    const text = await draftReply(db, brand, conv);
+    if (!text) return null;
+    return await sendReply(db, conv.id, { text, auto: true, sender: 'Agen AI', meta: { ai: true } });
+  } catch {
+    return null;
+  }
+}
+
 // Pesan pelanggan baru (dari sinkronisasi / webhook / simulasi): simpan + jalankan auto-reply kalau masih baru.
 export async function receiveInbound(db, channel, convNorm, msgNorm) {
   const { row: conv } = await upsertConversation(db, channel, { ...convNorm, unread: undefined });
   const saved = await ingestMessage(db, conv, { ...msgNorm, direction: 'in' }, { countUnread: true });
-  if (saved && Date.now() - new Date(saved.sent_at).getTime() < 15 * 60_000) await runAutoReply(db, conv, saved).catch(() => {});
+  if (saved && Date.now() - new Date(saved.sent_at).getTime() < 15 * 60_000) {
+    const ruled = await runAutoReply(db, conv, saved).catch(() => null);
+    if (!ruled) await maybeAiReply(db, conv).catch(() => {});
+  }
   return { conv, message: saved };
 }
 
@@ -164,7 +184,10 @@ export async function syncChannel(db, channel, { maxConversations = 20 } = {}) {
         const saved = await ingestMessage(db, row, m);
         if (saved) fetched++;
         // Auto-reply hanya untuk pesan yang baru masuk (bukan riwayat lama saat pertama disambungkan).
-        if (saved && m.direction === 'in' && !firstSync && Date.now() - new Date(m.sent_at).getTime() < 15 * 60_000) await runAutoReply(db, row, saved).catch(() => {});
+        if (saved && m.direction === 'in' && !firstSync && Date.now() - new Date(m.sent_at).getTime() < 15 * 60_000) {
+          const ruled = await runAutoReply(db, row, saved).catch(() => null);
+          if (!ruled) await maybeAiReply(db, row).catch(() => {});
+        }
       }
       if (conv.unread !== undefined) await db.run('UPDATE conversations SET unread = ? WHERE id = ?', Number(conv.unread), row.id);
     }

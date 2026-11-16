@@ -8,7 +8,8 @@ import { ORDER_EVENTS } from './common.js';
 import {
   creds, newWebhookToken, syncChannel, sendReply, markRead, receiveInbound, processOrder, DEFAULT_REMINDERS, upsertConversation, ingestMessage,
 } from './service.js';
-import { askClaude, AiError, brandBlock } from '../ai.js';
+import { AiError } from '../ai.js';
+import { draftReply } from './ai-agent.js';
 
 const str = (v, max = 4000) => String(v ?? '').trim().slice(0, max);
 const RULE_KINDS = ['welcome', 'keyword', 'away'];
@@ -197,9 +198,10 @@ export function inboxRoutes(app, db, scope, { storage, ownerUsername = 'admin' }
       status: ['open', 'closed'].includes(b.status) ? b.status : c.status,
       tags: Array.isArray(b.tags) ? JSON.stringify(b.tags.map((t) => str(t, 30)).filter(Boolean).slice(0, 10)) : c.tags,
       notes: b.notes !== undefined ? str(b.notes, 4000) : c.notes,
+      ai_mode: ['off', 'auto'].includes(b.ai_mode) ? b.ai_mode : c.ai_mode,
     };
     if (next.status === 'closed') await db.run('UPDATE conversations SET waiting_since = NULL, unread = 0 WHERE id = ?', c.id);
-    const [row] = await db.run('UPDATE conversations SET assignee_id = ?, status = ?, tags = ?, notes = ? WHERE id = ? RETURNING *', next.assignee_id, next.status, next.tags, next.notes, c.id);
+    const [row] = await db.run('UPDATE conversations SET assignee_id = ?, status = ?, tags = ?, notes = ?, ai_mode = ? WHERE id = ? RETURNING *', next.assignee_id, next.status, next.tags, next.notes, next.ai_mode, c.id);
     res.json(convRow(row, await channelMap(req.brand.id), await names()));
   });
 
@@ -236,20 +238,12 @@ export function inboxRoutes(app, db, scope, { storage, ownerUsername = 'admin' }
     res.status(201).json(t);
   });
 
-  // Saran balasan AI (tombol "Saran Balasan").
+  // Saran balasan AI (tombol "Saran Balasan") — prompt yang sama dipakai mode auto (ai_mode).
   app.post('/api/inbox/conversations/:id/suggest', scope, async (req, res) => {
     const c = await getConv(req);
     if (!c) return res.status(404).json({ error: 'Percakapan tidak ditemukan' });
-    const msgs = (await db.all('SELECT direction, sender, text, type FROM chat_messages WHERE conversation_id = ? ORDER BY sent_at DESC LIMIT 20', c.id)).reverse();
-    const templates = await db.all('SELECT title, body FROM cs_templates WHERE brand_id = ? ORDER BY uses DESC LIMIT 15', req.brand.id);
     try {
-      const answer = await askClaude({
-        system: `Kamu CS toko online Indonesia yang ramah, sopan, singkat, dan solutif. Panggil pelanggan "Kak". Jangan menjanjikan hal yang tidak pasti (refund, ongkir gratis) tanpa dasar. Tulis HANYA isi balasan, tanpa pembuka/penjelasan.\n${brandBlock(req.brand)}\n${templates.length ? `<template_toko>\n${templates.map((t) => `- ${t.title}: ${t.body}`).join('\n')}\n</template_toko>` : ''}`,
-        content: `Riwayat chat dengan pelanggan "${c.customer_name}":\n${msgs.map((m) => `${m.direction === 'in' ? 'Pelanggan' : 'Toko'}: ${m.text || `[${m.type}]`}`).join('\n')}\n\nTulis balasan berikutnya untuk toko.`,
-        effort: 'low',
-        maxTokens: 2000,
-      });
-      res.json({ suggestion: answer.trim() });
+      res.json({ suggestion: await draftReply(db, req.brand, c) });
     } catch (err) {
       if (err instanceof AiError) return res.status(err.status).json({ error: err.message });
       throw err;

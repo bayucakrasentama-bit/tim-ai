@@ -614,6 +614,7 @@ const ADDED_COLUMNS = [
 ['partner_posts', 'tracked', 'INTEGER'], ['partner_posts', 'refreshed_at'], ['partner_posts', 'thumbnail'], ['partner_posts', 'duration', 'INTEGER'],
 ['partner_posts', 'posted_at'], ['partner_posts', 'product'], ['partner_posts', 'error'],
 ['content_items', 'ref_link'], ['content_items', 'approved_by'], ['content_items', 'approved_at'], ['posts', 'notified', 'INTEGER'],
+['conversations', 'ai_mode', "TEXT NOT NULL DEFAULT 'off'"],
 ];
 
 export async function openDb(target) {
