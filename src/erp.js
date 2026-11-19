@@ -55,12 +55,12 @@ export function erpRoutes(app, db, scope) {
     const day = now().slice(0, 10);
     const one = async (sql, ...args) => (await db.get(sql, ...args)) || {};
     const out = {};
-    out.omzet_bulan = (await one(`SELECT COALESCE(SUM(total),0) AS v FROM (SELECT o.id, (SELECT COALESCE(SUM(qty*price),0) FROM erp_order_items i WHERE i.order_id = o.id) + o.shipping AS total FROM erp_orders o WHERE o.brand_id = ? AND o.status NOT IN ('batal') AND COALESCE(o.order_at, o.created_at) LIKE '${month}%' ) t`, b)).v;
-    out.order_hari_ini = (await one(`SELECT count(*) AS v FROM erp_orders WHERE brand_id = ? AND COALESCE(order_at, created_at) LIKE '${day}%'`, b)).v;
+    out.omzet_bulan = (await one(`SELECT COALESCE(SUM(total),0) AS v FROM (SELECT o.id, (SELECT COALESCE(SUM(qty*price),0) FROM erp_order_items i WHERE i.order_id = o.id) + o.shipping AS total FROM erp_orders o WHERE o.brand_id = ? AND o.status NOT IN ('batal') AND COALESCE(NULLIF(o.order_at,''), o.created_at) LIKE '${month}%' ) t`, b)).v;
+    out.order_hari_ini = (await one(`SELECT count(*) AS v FROM erp_orders WHERE brand_id = ? AND COALESCE(NULLIF(order_at,''), created_at) LIKE '${day}%'`, b)).v;
     out.perlu_diproses = (await one(`SELECT count(*) AS v FROM erp_orders WHERE brand_id = ? AND status IN ('baru','dibayar')`, b)).v;
     out.siap_kirim = (await one(`SELECT count(*) AS v FROM erp_orders WHERE brand_id = ? AND status = 'dikemas'`, b)).v;
     out.piutang = (await one(`SELECT COALESCE(SUM(amount),0) AS v FROM erp_invoices WHERE brand_id = ? AND status NOT IN ('lunas','batal')`, b)).v;
-    out.pengeluaran_bulan = (await one(`SELECT COALESCE(SUM(amount),0) AS v FROM erp_expenses WHERE brand_id = ? AND COALESCE(spent_at, created_at) LIKE '${month}%'`, b)).v;
+    out.pengeluaran_bulan = (await one(`SELECT COALESCE(SUM(amount),0) AS v FROM erp_expenses WHERE brand_id = ? AND COALESCE(NULLIF(spent_at,''), created_at) LIKE '${month}%'`, b)).v;
     out.stok_menipis = (await db.all(`SELECT p.id, p.name, p.stock_min, COALESCE(SUM(CASE WHEN m.type='masuk' THEN m.qty WHEN m.type='keluar' THEN -m.qty ELSE m.qty END),0) AS stok FROM erp_products p LEFT JOIN erp_stock_moves m ON m.product_id = p.id WHERE p.brand_id = ? GROUP BY p.id, p.name, p.stock_min HAVING COALESCE(SUM(CASE WHEN m.type='masuk' THEN m.qty WHEN m.type='keluar' THEN -m.qty ELSE m.qty END),0) < p.stock_min`, b));
     res.json(out);
   };
