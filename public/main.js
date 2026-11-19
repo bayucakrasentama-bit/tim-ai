@@ -29,6 +29,7 @@ import './factory.js';
 import './cs-closer.js';
 import './today.js';
 import './free-tools.js';
+import './erp.js';
 import './google.js'; // setelah suite.js: membungkus hook menu Tim
 import './focus.js';
 import './icons.js';

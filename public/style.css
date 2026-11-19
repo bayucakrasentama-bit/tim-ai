@@ -1111,3 +1111,24 @@ table.data tbody tr:hover { background: var(--card-2); }
 .tpl-img-big { display: block; max-width: 100%; max-height: 220px; margin: 6px auto 10px; border-radius: 10px; }
 .modal-box:has(#tpl-code-form) { width: min(980px, 100%); }
 #tpl-code-area { font-size: 12px; min-height: 55vh; }
+
+/* ERP Toko */
+.erp-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0; }
+.erp-tab { padding:7px 13px; border-radius:9px; border:1px solid var(--border,#ddd); background:transparent; cursor:pointer; font-size:13px; }
+.erp-tab.active { background:var(--accent,#4f46e5); color:#fff; border-color:transparent; }
+.erp-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px; margin:12px 0; }
+.erp-card { background:var(--panel,#fff); border:1px solid var(--border,#e5e7eb); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px; }
+.erp-card span { font-size:12px; opacity:.7; }
+.erp-card b { font-size:19px; }
+.erp-table-wrap { overflow-x:auto; margin:10px 0; }
+.erp-table { width:100%; border-collapse:collapse; font-size:13px; }
+.erp-table th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--border,#e5e7eb); white-space:nowrap; }
+.erp-table td { padding:7px 10px; border-bottom:1px solid var(--border,#eee); }
+.erp-form { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; background:var(--panel,#fafafa); border:1px solid var(--border,#e5e7eb); border-radius:12px; padding:14px; margin:10px 0; }
+.erp-form label { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+.erp-form input, .erp-form select, .erp-form textarea { padding:8px; border:1px solid var(--border,#ddd); border-radius:8px; font-size:13px; background:var(--bg,#fff); color:inherit; }
+.erp-form textarea { min-height:64px; }
+.erp-actions { grid-column:1/-1; display:flex; gap:8px; }
+.erp-bar { margin:10px 0; }
+.row-acts { white-space:nowrap; }
+.erp-status { padding:5px 8px; border-radius:8px; border:1px solid var(--border,#ddd); background:var(--bg,#fff); color:inherit; font-size:12px; }

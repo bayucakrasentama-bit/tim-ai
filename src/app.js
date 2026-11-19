@@ -24,6 +24,7 @@ import { analyticsRoutes, syncIfStale } from './analytics.js';
 import { aiRoutes, aiEnabled } from './ai.js';
 import { tiktokRoutes, refreshStale } from './tiktok.js';
 import { csRoutes } from './cs.js';
+import { erpRoutes } from './erp.js';
 import { launchRoutes, landingPublicRoute } from './launch.js';
 import { reportRoutes } from './reports.js';
 import { inboxRoutes, inboxWebhookRoute } from './inbox/routes.js';
@@ -188,6 +189,7 @@ export function createApp({ db, connectors, storage, username = 'admin', passwor
   opsRoutes(app, db, scope, { canManage });
   tiktokRoutes(app, db, scope);
   csRoutes(app, db, scope, { ownerUsername: username });
+  erpRoutes(app, db, scope);
   launchRoutes(app, db, scope);
   adsRoutes(app, db);
   growthRoutes(app, db, scope);
