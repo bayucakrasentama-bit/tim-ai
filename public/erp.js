@@ -18,7 +18,6 @@
     warehouses: { label: 'Gudang', fields: [['name', 'Nama', 'text'], ['city', 'Kota', 'text'], ['notes', 'Catatan', 'textarea']] },
     invoices: { label: 'Invoice', fields: [['invoice_no', 'No Invoice', 'text'], ['order_id', 'ID Order', 'number'], ['customer_id', 'ID Customer', 'number'], ['amount', 'Jumlah (Rp)', 'number'], ['status', 'Status', 'select', ['belum_lunas', 'lunas', 'jatuh_tempo', 'batal']], ['due_at', 'Jatuh Tempo', 'date'], ['notes', 'Catatan', 'textarea']] },
     expenses: { label: 'Pengeluaran', fields: [['category', 'Kategori', 'text'], ['amount', 'Jumlah (Rp)', 'number'], ['notes', 'Catatan', 'textarea'], ['spent_at', 'Tanggal', 'date']] },
-    complaints: { label: 'Komplain', fields: [['order_id', 'ID Order', 'number'], ['customer_id', 'ID Customer', 'number'], ['category', 'Kategori', 'select', ['produk', 'pengiriman', 'retur_refund', 'pembayaran', 'lainnya']], ['status', 'Status', 'select', ['baru', 'diproses', 'selesai']], ['summary', 'Ringkasan', 'textarea'], ['resolution', 'Penyelesaian', 'textarea']] },
     reviews: { label: 'Review', fields: [['product_id', 'ID Produk', 'number'], ['customer_id', 'ID Customer', 'number'], ['rating', 'Rating (1-5)', 'number'], ['channel', 'Channel', 'text'], ['comment', 'Komentar', 'textarea'], ['review_at', 'Tanggal', 'date']] },
     stock_moves: { label: 'Pergerakan Stok', fields: [['product_id', 'ID Produk', 'number'], ['warehouse_id', 'ID Gudang', 'number'], ['type', 'Jenis', 'select', ['masuk', 'keluar', 'penyesuaian']], ['qty', 'Jumlah', 'number'], ['ref', 'Referensi', 'text'], ['notes', 'Catatan', 'textarea']] },
   };
@@ -30,7 +29,6 @@
     warehouses: [['name', 'Nama'], ['city', 'Kota']],
     invoices: [['invoice_no', 'No'], ['amount', 'Jumlah'], ['status', 'Status'], ['due_at', 'Jatuh Tempo']],
     expenses: [['category', 'Kategori'], ['amount', 'Jumlah'], ['spent_at', 'Tanggal']],
-    complaints: [['category', 'Kategori'], ['status', 'Status'], ['summary', 'Ringkasan']],
     reviews: [['rating', 'Rating'], ['channel', 'Channel'], ['comment', 'Komentar'], ['review_at', 'Tanggal']],
     stock_moves: [['product_id', 'Produk'], ['warehouse_id', 'Gudang'], ['type', 'Jenis'], ['qty', 'Jumlah'], ['created_at', 'Waktu']],
   };
@@ -122,13 +120,16 @@
       <div class="erp-bar"><button class="primary" data-add-order>+ Tambah Order</button></div>
       <div class="erp-form-slot"></div>
       <div class="erp-table-wrap"><table class="erp-table">
-        <thead><tr><th>No</th><th>Customer</th><th>Channel</th><th>Status</th><th>Total</th><th>Dibayar</th><th>Tanggal</th><th></th></tr></thead>
+        <thead><tr><th>No</th><th>Sumber</th><th>Customer</th><th>Channel</th><th>Status</th><th>Total</th><th>Dibayar</th><th>Tanggal</th><th></th></tr></thead>
         <tbody>${rows.map((o) => `<tr>
-          <td>${esc(o.order_no)}</td><td>${esc(o.customer_name || '—')}</td><td>${esc(o.channel || '—')}</td>
-          <td><select class="erp-status" data-order="${o.id}">${ORDER_STATUS.map((s) => `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-          <td><b>${rp(o.total)}</b></td><td>${rp(o.dibayar)}</td><td>${fmt((o.order_at || '').slice(0, 10))}</td>
-          <td class="row-acts"><button class="ghost small" data-order-open="${o.id}">Detail</button>
-          <button class="ghost small" data-order-del="${o.id}">Hapus</button></td></tr>`).join('') || '<tr><td colspan="8">Belum ada order</td></tr>'}</tbody>
+          <td>${esc(o.order_no)}</td>
+          <td>${o.source === 'marketplace' ? '<span class="erp-tag">Marketplace</span>' : '<span class="erp-tag erp-tag-m">Manual</span>'}</td>
+          <td>${esc(o.customer_name || '—')}</td><td>${esc(o.channel || '—')}</td>
+          <td>${o.source === 'marketplace' ? esc(o.status || '—') : `<select class="erp-status" data-order="${o.id}">${ORDER_STATUS.map((s) => `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`}</td>
+          <td><b>${rp(o.total)}</b></td><td>${o.dibayar == null ? '—' : rp(o.dibayar)}</td><td>${fmt((o.order_at || '').slice(0, 10))}</td>
+          <td class="row-acts">${o.source === 'marketplace'
+            ? '<span class="erp-readonly">sinkron</span>'
+            : `<button class="ghost small" data-order-open="${o.id}">Detail</button><button class="ghost small" data-order-del="${o.id}">Hapus</button>`}</td></tr>`).join('') || '<tr><td colspan="9">Belum ada order</td></tr>'}</tbody>
       </table></div>
       <div id="erp-order-detail"></div>`;
   }
@@ -157,11 +158,30 @@
     </table></div>`;
   }
 
+  const CS_STATUS = ['baru', 'diproses', 'menunggu', 'selesai'];
+
+  // Komplain = data yang sama dengan menu "Tiket & Template" (cs_tickets) — tidak disimpan dobel.
+  async function renderComplaints() {
+    const rows = await api('/api/cs/tickets');
+    $('#erp-body').innerHTML = `
+      <p class="erp-note">Komplain & retur dikelola sebagai <b>CS Tiket</b> (SLA + template balasan) — data yang sama dengan menu "Tiket & Template".</p>
+      <div class="erp-table-wrap"><table class="erp-table">
+        <thead><tr><th>Pelanggan</th><th>Channel</th><th>Kategori</th><th>Prioritas</th><th>Status</th><th>Ringkasan</th><th>Batas Waktu</th></tr></thead>
+        <tbody>${rows.map((t) => `<tr>
+          <td>${esc(t.customer || '—')}</td><td>${esc(t.channel || '—')}</td><td>${esc(t.category || '—')}</td>
+          <td>${esc(t.priority || '—')}</td>
+          <td><select class="erp-status cs-status" data-ticket="${t.id}">${CS_STATUS.map((s) => `<option ${s === t.status ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+          <td>${esc(String(t.summary || '').slice(0, 60))}</td><td>${fmt((t.due_at || '').slice(0, 16).replace('T', ' '))}</td>
+        </tr>`).join('') || '<tr><td colspan="7">Belum ada tiket</td></tr>'}</tbody>
+      </table></div>`;
+  }
+
   async function render() {
     const t = state.tab;
     if (t === 'dashboard') return renderDashboard().catch((e) => toast(e.message));
     if (t === 'orders') return renderOrders().catch((e) => toast(e.message));
     if (t === 'audit') return renderAudit().catch((e) => toast(e.message));
+    if (t === 'complaints') return renderComplaints().catch((e) => toast(e.message));
     if (t === 'stock') return renderEntity('stock_moves').catch((e) => toast(e.message));
     return renderEntity(t).catch((e) => toast(e.message));
   }
@@ -250,6 +270,12 @@
   });
 
   document.addEventListener('change', (e) => {
+    const tk = e.target.closest('.cs-status');
+    if (tk) {
+      api(`/api/cs/tickets/${tk.dataset.ticket}`, { method: 'PATCH', body: { status: tk.value } })
+        .then(() => toast(`Tiket → ${tk.value}`)).catch((err) => toast(err.message));
+      return;
+    }
     const sel = e.target.closest('.erp-status');
     if (!sel) return;
     api(`/api/erp/orders/${sel.dataset.order}`, { method: 'PATCH', body: { status: sel.value } })

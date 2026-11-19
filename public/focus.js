@@ -20,7 +20,7 @@ const ON = store.get('timai.focus', true) !== false;
 const HUBS = [
   ['beranda', 'Beranda', [['today', 'Hari Ini'], ['dashboard', 'Ringkasan'], ['founder', 'Kantor AI'], ['tools-founder', 'Tools']]],
   ['konten', 'Konten', [['planner', 'Planner'], ['calendar', 'Kalender'], ['compose', 'Buat Post'], ['tools-medsos', 'Tools Medsos']]],
-  ['studio', 'Studio', [['studio', 'Desain & Gambar'], ['motion', 'Video Motion'], ['ai', 'AI Studio'], ['tools-konten', 'Tools Konten']]],
+  ['studio', 'Studio', [['studio', 'Desain & Gambar'], ['motion', 'Video Motion'], ['ai', 'AI Studio'], ['tools', 'Tools']]],
   ['produk', 'Produk Digital', [['launch', 'Launch Lab'], ['agents-digital', 'Agen Produk & Brand'], ['tools-digital', 'Tools']]],
   ['iklan', 'Iklan', [['adv', 'Iklan Meta & TikTok'], ['mp', 'Iklan Marketplace'], ['agents-adv', 'Agen & Kalkulator'], ['tools-iklan', 'Tools']]],
   ['kol', 'KOL', [['kol', 'KOL & Influencer'], ['tools-kol', 'Tools']]],

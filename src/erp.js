@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS erp_order_items (id BIGSERIAL PRIMARY KEY, order_id B
 CREATE TABLE IF NOT EXISTS erp_payments (id BIGSERIAL PRIMARY KEY, order_id BIGINT NOT NULL, amount NUMERIC NOT NULL, method TEXT, paid_at TEXT, notes TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS erp_invoices (id BIGSERIAL PRIMARY KEY, brand_id BIGINT NOT NULL, invoice_no TEXT, order_id BIGINT, customer_id BIGINT, amount NUMERIC NOT NULL DEFAULT 0, status TEXT DEFAULT 'belum_lunas', due_at TEXT, notes TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS erp_expenses (id BIGSERIAL PRIMARY KEY, brand_id BIGINT NOT NULL, category TEXT, amount NUMERIC NOT NULL DEFAULT 0, notes TEXT, spent_at TEXT, created_by TEXT, created_at TEXT);
-CREATE TABLE IF NOT EXISTS erp_complaints (id BIGSERIAL PRIMARY KEY, brand_id BIGINT NOT NULL, order_id BIGINT, customer_id BIGINT, category TEXT, status TEXT DEFAULT 'baru', summary TEXT, resolution TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS erp_reviews (id BIGSERIAL PRIMARY KEY, brand_id BIGINT NOT NULL, product_id BIGINT, customer_id BIGINT, rating INTEGER DEFAULT 5, channel TEXT, comment TEXT, review_at TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS erp_audit_logs (id BIGSERIAL PRIMARY KEY, brand_id BIGINT NOT NULL, actor TEXT, action TEXT, entity TEXT, entity_id BIGINT, detail TEXT, created_at TEXT);
 `;
@@ -32,7 +31,6 @@ const ENTITIES = {
   warehouses: { label: 'Gudang', cols: { name: 'text', city: 'text', notes: 'textarea' }, required: ['name'] },
   invoices: { label: 'Invoice', cols: { invoice_no: 'text', order_id: 'number', customer_id: 'number', amount: 'number', status: 'select:belum_lunas|lunas|jatuh_tempo|batal', due_at: 'date', notes: 'textarea' }, required: ['amount'] },
   expenses: { label: 'Pengeluaran', cols: { category: 'text', amount: 'number', notes: 'textarea', spent_at: 'date' }, required: ['amount'] },
-  complaints: { label: 'Komplain', cols: { order_id: 'number', customer_id: 'number', category: 'select:produk|pengiriman|retur_refund|pembayaran|lainnya', status: 'select:baru|diproses|selesai', summary: 'textarea', resolution: 'textarea' }, required: ['summary'] },
   reviews: { label: 'Review', cols: { product_id: 'number', customer_id: 'number', rating: 'number', channel: 'text', comment: 'textarea', review_at: 'date' }, required: ['comment'] },
   stock_moves: { label: 'Stok', cols: { product_id: 'number', warehouse_id: 'number', type: 'select:masuk|keluar|penyesuaian', qty: 'number', ref: 'text', notes: 'textarea' }, required: ['product_id', 'qty'] },
 };
@@ -137,13 +135,32 @@ export function erpRoutes(app, db, scope) {
 
   // ---- Order khusus (dengan item & pembayaran) ----
   app.get('/api/erp/orders', scope, async (req, res) => {
-    res.json(await db.all(`
+    const manual = await db.all(`
       SELECT o.*, c.name AS customer_name,
         (SELECT COALESCE(SUM(qty*price),0) FROM erp_order_items i WHERE i.order_id = o.id) AS subtotal,
         (SELECT COALESCE(SUM(qty*price),0) FROM erp_order_items i WHERE i.order_id = o.id) + o.shipping AS total,
         (SELECT COALESCE(SUM(amount),0) FROM erp_payments p WHERE p.order_id = o.id) AS dibayar
       FROM erp_orders o LEFT JOIN erp_customers c ON c.id = o.customer_id
-      WHERE o.brand_id = ? ORDER BY o.id DESC LIMIT 500`, req.brand.id));
+      WHERE o.brand_id = ? ORDER BY o.id DESC LIMIT 500`, req.brand.id);
+    // Order marketplace yang tersinkron lewat Inbox (chat_orders) digabung ke tampilan yang sama —
+    // satu pintu untuk semua order, barisnya hanya-baca (sumbernya sistem marketplace).
+    let synced = [];
+    try {
+      synced = await db.all(`
+        SELECT co.*, cc.platform, cc.name AS channel_name FROM chat_orders co
+        LEFT JOIN chat_channels cc ON cc.id = co.channel_id
+        ORDER BY co.id DESC LIMIT 500`);
+    } catch { /* tabel belum ada */ }
+    const rows = [
+      ...manual.map((o) => ({ ...o, source: 'manual' })),
+      ...synced.map((o) => ({
+        id: 'm' + o.id, source: 'marketplace', order_no: o.external_id,
+        customer_name: o.buyer_name, channel: o.platform || o.channel_name || 'marketplace',
+        status: o.raw_status || o.status, subtotal: null, total: o.total, dibayar: null,
+        order_at: o.ordered_at, created_at: o.updated_at,
+      })),
+    ];
+    res.json(rows);
   });
 
   app.get('/api/erp/orders/:id', scope, async (req, res) => {

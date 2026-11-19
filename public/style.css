@@ -1132,3 +1132,9 @@ table.data tbody tr:hover { background: var(--card-2); }
 .erp-bar { margin:10px 0; }
 .row-acts { white-space:nowrap; }
 .erp-status { padding:5px 8px; border-radius:8px; border:1px solid var(--border,#ddd); background:var(--bg,#fff); color:inherit; font-size:12px; }
+
+.erp-tag { display:inline-block; padding:2px 8px; border-radius:7px; background:#eef2ff; color:#4338ca; font-size:11px; }
+.erp-tag-m { background:#fef3c7; color:#92400e; }
+.erp-readonly { opacity:.6; font-size:11px; }
+.erp-note { font-size:13px; opacity:.85; margin:8px 0; }
+#toolpanel-konten iframe { width:100%; min-height:75vh; border:0; border-radius:12px; }

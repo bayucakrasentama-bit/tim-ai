@@ -55,8 +55,7 @@
 <button data-view="inbox" data-team="cs sales">Inbox</button>
 <button data-view="cs" data-team="cs sales">Tiket &amp; Template</button><button data-view="closer" data-team="cs sales">CS AI Closing</button><span class="nav-group" data-group="founder">Tim Founder</span><button data-view="founder" data-team="founder keuangan">Kantor AI</button>
 <span class="nav-group" data-group="all">Alat</span>
-<button data-view="freetools" data-team="konten medsos digital adv mp live kol affiliate cs sales keuangan founder">Free Tools</button>
-<button data-view="toolskonten" data-team="konten medsos digital adv mp live kol affiliate cs sales keuangan founder">Tools Konten AI</button>
+<button data-view="tools" data-team="konten medsos digital adv mp live kol affiliate cs sales keuangan founder">Tools</button>
 <button data-view="erp" data-team="konten medsos digital adv mp live kol affiliate cs sales keuangan founder">ERP Toko</button>
 <span class="nav-group" data-group="all">Pengaturan</span>
 <!-- Digabung ke AI Studio (tab Model & API Keys); tombol disembunyikan, rute lama tetap jalan. -->
@@ -136,8 +135,15 @@
 <section id="view-closer" class="view"></section>
 <section id="view-founder" class="view"></section>
 <section id="view-aikeys" class="view"></section>
-<section id="view-freetools" class="view"></section>
-<section id="view-toolskonten" class="view"><iframe id="toolskonten-frame" class="studio-frame" title="Tools Konten AI" src="/tools-konten.html" allow="clipboard-write"></iframe></section>
+<section id="view-tools" class="view">
+    <h1>Tools</h1>
+    <div class="erp-tabs">
+      <button class="erp-tab active" data-tooltab="konten">Tools Konten AI</button>
+      <button class="erp-tab" data-tooltab="gratis">Free Tools</button>
+    </div>
+    <div id="toolpanel-konten"><iframe id="toolskonten-frame" class="studio-frame" title="Tools Konten AI" src="/tools-konten.html" allow="clipboard-write"></iframe></div>
+    <div id="toolpanel-gratis" hidden><div id="view-freetools"></div></div>
+  </section>
 <section id="view-erp" class="view"></section>
 
     <!-- ANALITIK -->

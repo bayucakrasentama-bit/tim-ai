@@ -30,6 +30,7 @@ import './cs-closer.js';
 import './today.js';
 import './free-tools.js';
 import './erp.js';
+import './tools-tabs.js';
 import './google.js'; // setelah suite.js: membungkus hook menu Tim
 import './focus.js';
 import './icons.js';
