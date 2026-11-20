@@ -1,8 +1,8 @@
 // LP Builder (tab di Studio Visual): landing page dari blok-blok section.
 // - Pratinjau langsung (desktop/HP) dan bisa diedit langsung dengan klik teks di pratinjau.
 // - Hasil: HTML utuh (satu file, siap upload ke hosting mana pun) dan JSON (bisa diimpor lagi / diedit tim lain).
-// - Bisa diisi AI dari brief, diimpor dari Launch Lab, dan diterbitkan di /p/<alamat>.
-// - Template dari referensi: impor HTML landing page jadi (desain sendiri), edit teks/gambar/link, lalu AI menyesuaikan ke produk lain.
+// - Bisa diisi AI dari brief, di-scrap dari link LP referensi, diimpor dari Launch Lab, dan diterbitkan di /p/<alamat>.
+// - Template dari referensi: impor HTML atau tempel link landing page jadi (desain sendiri), edit teks/gambar/link, lalu AI menyesuaikan ke produk lain.
 const S = window.siarin;
 const { api, esc, toast, openModal, closeModal, state } = S;
 const $ = (sel) => document.querySelector(sel);
@@ -448,7 +448,7 @@ function drawShell() {
     <span class="lpb-sep"></span>
     <button class="ghost small" id="lpb-ai">✨ ${isTpl(cur.data) ? 'Sesuaikan produk (AI)' : 'Isi dengan AI'}</button>
     ${isTpl(cur.data) ? '' : '<button class="ghost small" id="lpb-launch">Ambil dari Launch Lab</button>'}
-    <label class="btn small" title="HTML landing page jadi (referensi) atau file JSON/HTML dari LP Builder">Impor referensi HTML / JSON<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label>
+    <button class="ghost small" id="lpb-scrape" title="Tempel link landing page referensi, atau upload file HTML/JSON">🔗 Impor referensi (link)</button>
     <span class="lpb-sep"></span>
     <button class="ghost small" id="lpb-dl-html">⬇ HTML</button>
     <button class="ghost small" id="lpb-dl-json">⬇ JSON</button>
@@ -513,6 +513,68 @@ function aiModal() {
       toast(ex.message);
       $('#lai-go').disabled = false;
       $('#lai-go').textContent = 'Coba lagi';
+    }
+  });
+}
+
+function scrapeModal() {
+  openModal(`<form id="lpb-sc-form"><h3>🔗 Impor landing page referensi</h3>
+    <label class="label" for="lsc-url">Link landing page referensi</label>
+    <input id="lsc-url" required placeholder="https://contoh.com/promo" autocomplete="off" autofocus>
+    <label class="label">Hasilnya mau jadi apa</label>
+    <label class="toggle"><input type="radio" name="lsc-mode" value="copy" checked> Salin desain persis jadi template (edit teks/gambar/link, lalu ✨ Sesuaikan produk)</label>
+    <label class="toggle"><input type="radio" name="lsc-mode" value="rewrite"> Jadi blok LP Builder: tiru struktur &amp; warna, tulis ulang untuk brand saya (AI)</label>
+    <label class="toggle"><input type="radio" name="lsc-mode" value="keep"> Jadi blok LP Builder: pakai teks aslinya apa adanya (AI)</label>
+    <div id="lsc-ai-opts" hidden>
+      <div id="lsc-brief-wrap"><label class="label" for="lsc-brief">Brief produk saya (opsional)</label>
+        <textarea id="lsc-brief" rows="4" placeholder="Produk apa, untuk siapa, harga & promo, keunggulan. Kosongkan = pakai profil brand."></textarea></div>
+      <label class="label" for="lsc-cta">Link tombol (WA/checkout, opsional)</label><input id="lsc-cta" placeholder="https://wa.me/62...">
+      <label class="toggle"><input type="checkbox" id="lsc-img" checked> Pakai gambar dari halaman asli (link ke website sumber)</label>
+      <p class="hint">Isi halaman yang sedang dibuka akan diganti hasil scrap.</p></div>
+    <p class="hint" id="lsc-copy-hint">Jadi halaman baru; halaman yang sedang dibuka tidak tertimpa. Gambar, CSS, dan font tetap diambil dari website sumber.</p>
+    <p class="hint">Halaman yang dirender JavaScript atau dikunci login kadang tidak terbaca. Pastikan kamu berhak memakai desain, teks &amp; gambar halaman sumber.</p>
+    <p class="hint">Punya file HTML/JSON-nya? <label class="btn small">Upload file<input type="file" id="lpb-import" accept=".json,.html,application/json,text/html" hidden></label></p>
+    <div class="modal-actions"><button type="button" class="ghost" data-close>Batal</button><button class="primary" id="lsc-go">Impor</button></div></form>`);
+  const form = $('#lpb-sc-form');
+  $('#lpb-import').addEventListener('change', (e) => { if (e.target.files[0]) { closeModal(); importFile(e.target.files[0]); } });
+  const mode = () => form.querySelector('[name=lsc-mode]:checked').value;
+  form.addEventListener('change', () => {
+    $('#lsc-ai-opts').hidden = mode() === 'copy';
+    $('#lsc-copy-hint').hidden = mode() !== 'copy';
+    $('#lsc-brief-wrap').hidden = mode() === 'keep';
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const go = $('#lsc-go');
+    go.disabled = true;
+    try {
+      if (mode() === 'copy') {
+        go.textContent = 'Lagi ambil halaman…';
+        const r = await api('/api/lp-pages/fetch-html', json('POST', { url: $('#lsc-url').value }));
+        const host = new URL(r.url).hostname;
+        const data = templateFromHtml(r.html, host);
+        if (data.html.length > 3_400_000) throw new Error('Halaman ini terlalu besar untuk dijadikan template (maks ±3,4 MB).');
+        const p = await api('/api/lp-pages', json('POST', { name: `Referensi ${data.title || host}`.slice(0, 120), data }));
+        closeModal();
+        await loadPages(p.id);
+        return toast(`Desain ${host} jadi template. Klik teks/gambar untuk edit, atau ✨ Sesuaikan produk (AI).`);
+      }
+      go.textContent = 'Lagi baca halaman & nyusun blok… (±30-90 detik)';
+      const d = await api('/api/lp-pages/scrape', json('POST', {
+        url: $('#lsc-url').value, mode: form.querySelector('[name=lsc-mode]:checked').value,
+        brief: $('#lsc-brief').value, cta_url: $('#lsc-cta').value, images: $('#lsc-img').checked,
+      }));
+      const { source, ...data } = d;
+      cur.data = normalize(data);
+      openIdx = 0;
+      closeModal();
+      markDirty();
+      drawShell();
+      toast(`Hasil scrap dari ${new URL(source.url).hostname} siap. Cek, edit, lalu Simpan.`);
+    } catch (ex) {
+      toast(ex.message);
+      go.disabled = false;
+      go.textContent = 'Coba lagi';
     }
   });
 }
@@ -617,6 +679,7 @@ function bind() {
         await loadPages();
       }
       if (t.id === 'lpb-ai' || t.id === 'tpl-ai') (isTpl(cur.data) ? tplAiModal : aiModal)();
+      if (t.id === 'lpb-scrape') scrapeModal();
       if (t.id === 'tpl-code') codeModal();
       if (t.closest?.('[data-tpl-pick]')) imageModal(Number(t.closest('[data-tpl-pick]').dataset.tplPick));
       if (t.id === 'tpl-dup') {
@@ -681,7 +744,6 @@ function bind() {
       if (dirty && !confirm('Perubahan belum disimpan. Pindah halaman?')) { t.value = cur.id; return; }
       await loadPages(Number(t.value));
     }
-    if (t.id === 'lpb-import' && t.files[0]) importFile(t.files[0]);
     if (t.id === 'lpb-inline') { editInPreview = t.checked; preview(); }
     if (t.dataset.tplLink !== undefined && t.value.trim() && t.value.trim() !== t.dataset.tplLink) {
       replaceLink(t.dataset.tplLink, t.value.trim());
